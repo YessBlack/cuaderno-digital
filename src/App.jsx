@@ -4,6 +4,8 @@ import './App.css'
 import { Register } from './components/Register'
 
 function App () {
+  const user = window.localStorage.getItem('user')
+  console.log(user)
   return (
     <>
       <img
@@ -26,7 +28,7 @@ function App () {
         />
         <Route
           path='/home'
-          element={<Welcome />}
+          element={user && <Welcome />}
         />
       </Routes>
       <footer className='w-full bg-primary fixed bottom-0 h-[30px]' />

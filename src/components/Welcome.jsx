@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 
 export function Welcome () {
   return (
-    <section className='flex flex-col justify-center items-center m-4'>
+    <section className='flex flex-col justify-center items-center mb-4'>
       <div className='flex flex-col items-center justify-between border-primary border p-5 rounded-3xl max-w-[500px] w-full h-[75vh] shadow-2xl max-h-[500px]'>
         <div className='flex gap-4 items-center justify-center text-secondary text-2xl text-center'>
           <span className='icon-book text-6xl' />
