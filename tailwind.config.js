@@ -9,7 +9,8 @@ export default {
       primary: '#3D0963',
       secondary: '#F59923',
       buttonPrimary: '#870B85',
-      buttonSecondary: '#AC0C63'
+      buttonSecondary: '#AC0C63',
+      white: '#FFFFFF'
     },
     extend: {
       boxShadow: {
