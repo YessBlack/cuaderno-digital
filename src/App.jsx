@@ -24,6 +24,10 @@ function App () {
           path='/login'
           element={<Welcome />}
         />
+        <Route
+          path='/home'
+          element={<Welcome />}
+        />
       </Routes>
       <footer className='w-full bg-primary fixed bottom-0 h-[30px]' />
     </>
