@@ -1,11 +1,9 @@
 import { useAuth } from '../hooks/useAuth'
-import { useNavigate } from 'react-router-dom'
 import { AuthForm } from './AuthForm'
 import { ToastContainer, toast } from 'react-toastify'
 
 export function Register () {
-  const { register, user, error } = useAuth()
-  const navigate = useNavigate()
+  const { register, userRegister, error } = useAuth()
 
   const handleSubmit = (e) => {
     e.preventDefault()

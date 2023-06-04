@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react'
-import { authState, createUser, loginUser, logoutUser } from '../services/auth'
+import { createUser, loginUser } from '../services/auth'
 
 export function useAuth () {
   const [error, setError] = useState(null)
   const [user, setUser] = useState(null)
+  const [userRegister, setUserRegister] = useState(null)
+  const navigate = useNavigate()
 
   const register = async (email, password) => {
     const res = await createUser(email, password)
     if (typeof res === 'string') {
       setError(res)
     } else {
-      setUser(res.user)
+      setUserRegister(res.user)
+      setError(null)
+      setTimeout(() => {
+        navigate('/login')
+      }, 3000)
     }
   }
 
@@ -19,6 +25,7 @@ export function useAuth () {
     if (typeof res === 'string') {
       setError(res)
     } else {
+      setError(null)
       setUser(res.user)
     }
   }
@@ -36,7 +43,8 @@ export function useAuth () {
 
   useEffect(() => {
     user && window.localStorage.setItem('user', JSON.stringify(user))
-  }, [user])
+    user && navigate('/home')
+  }, [user, navigate])
 
   return {
     register,
@@ -44,6 +52,7 @@ export function useAuth () {
     logout,
     checkUser,
     error,
-    user
+    user,
+    userRegister
   }
 }
