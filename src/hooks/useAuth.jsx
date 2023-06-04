@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createUser } from '../services/auth'
+import { createUser, loginUser } from '../services/auth'
 
 export function useAuth () {
   const [error, setError] = useState(null)
@@ -14,9 +14,14 @@ export function useAuth () {
     }
   }
 
-  useEffect(() => {
-    error && alert(error)
-  }, [error])
+  const login = async (email, password) => {
+    const res = await loginUser(email, password)
+    if (typeof res === 'string') {
+      setError(res)
+    } else {
+      setUser(res.user)
+    }
+  }
 
   useEffect(() => {
     user && window.localStorage.setItem('user', JSON.stringify(user))
@@ -24,6 +29,7 @@ export function useAuth () {
 
   return {
     register,
+    login,
     error,
     user
   }

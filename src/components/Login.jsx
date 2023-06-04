@@ -3,29 +3,30 @@ import { useNavigate } from 'react-router-dom'
 import { AuthForm } from './AuthForm'
 import { ToastContainer, toast } from 'react-toastify'
 
-export function Register () {
-  const { register, user, error } = useAuth()
+export function Login () {
+  const { login, user, error } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = (e) => {
     e.preventDefault()
     const data = Object.fromEntries(new FormData(e.target))
-    register(data.email, data.password)
+    login(data.email, data.password)
   }
 
   error && toast.error(error, {
     position: 'top-center'
   })
+
   user && navigate('/home')
 
   return (
     <>
       <ToastContainer />
       <AuthForm
-        title='Registrarse'
-        buttonText='Registrarse'
+        title='Iniciar sesión'
+        buttonText='Iniciar sesión'
         handleSubmit={handleSubmit}
-        showNameField
+        showNameField={false}
       />
     </>
   )
