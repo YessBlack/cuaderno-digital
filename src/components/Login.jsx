@@ -1,11 +1,9 @@
 import { useAuth } from '../hooks/useAuth'
-import { useNavigate } from 'react-router-dom'
 import { AuthForm } from './AuthForm'
 import { ToastContainer, toast } from 'react-toastify'
 
 export function Login () {
-  const { login, user, error } = useAuth()
-  const navigate = useNavigate()
+  const { login, error } = useAuth()
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -16,8 +14,6 @@ export function Login () {
   error && toast.error(error, {
     position: 'top-center'
   })
-
-  user && navigate('/home')
 
   return (
     <>

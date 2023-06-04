@@ -6,7 +6,7 @@ import { Login } from './components/Login'
 
 function App () {
   const user = window.localStorage.getItem('user')
-  console.log(user)
+  // console.log(user)
   return (
     <>
       <img

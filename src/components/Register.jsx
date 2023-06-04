@@ -1,11 +1,9 @@
 import { useAuth } from '../hooks/useAuth'
-import { useNavigate } from 'react-router-dom'
 import { AuthForm } from './AuthForm'
 import { ToastContainer, toast } from 'react-toastify'
 
 export function Register () {
-  const { register, user, error } = useAuth()
-  const navigate = useNavigate()
+  const { register, userRegister, error } = useAuth()
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -16,7 +14,13 @@ export function Register () {
   error && toast.error(error, {
     position: 'top-center'
   })
-  user && navigate('/home')
+
+  console.log(error)
+
+  userRegister && toast.success('Usuario registrado con éxito', {
+    position: 'top-center',
+    autoClose: 2000
+  })
 
   return (
     <>
