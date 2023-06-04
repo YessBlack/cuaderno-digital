@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import { Welcome } from './components/Welcome'
 import './App.css'
 import { Register } from './components/Register'
+import { Login } from './components/Login'
 
 function App () {
   const user = window.localStorage.getItem('user')
@@ -24,7 +25,7 @@ function App () {
         />
         <Route
           path='/login'
-          element={<Welcome />}
+          element={<Login />}
         />
         <Route
           path='/home'
