@@ -1,5 +1,14 @@
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+
 export function Footer () {
-  const user = JSON.parse(window.localStorage.getItem('user'))
+  const navigate = useNavigate()
+  const { user, checkUser, logout } = useAuth()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
 
   return (
     <>
@@ -10,7 +19,7 @@ export function Footer () {
               <div className='relative z-10 flex justify-between items-center text-secondary text-lg'>
                 <span className='icon-home' />
                 <span className='icon-user' />
-                <span className='icon-sign-out' />
+                <span className='icon-sign-out' onClick={handleLogout} />
               </div>
             </footer>
             )
