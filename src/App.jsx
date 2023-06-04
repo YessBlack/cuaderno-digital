@@ -3,17 +3,15 @@ import { Welcome } from './components/Welcome'
 import './App.css'
 import { Register } from './components/Register'
 import { Login } from './components/Login'
+import { Dashboard } from './components/Dashboard'
+import { Header } from './components/Header'
+import { Footer } from './components/Footer'
 
 function App () {
   const user = window.localStorage.getItem('user')
-  console.log(user)
   return (
     <>
-      <img
-        src='/public/background.svg'
-        alt='background'
-        className='w-full sticky top-0 h-[18vh] object-cover'
-      />
+      <Header />
       <Routes>
         <Route
           path='/'
@@ -29,10 +27,10 @@ function App () {
         />
         <Route
           path='/home'
-          element={user && <Welcome />}
+          element={user && <Dashboard />}
         />
       </Routes>
-      <footer className='w-full bg-primary fixed bottom-0 h-[30px]' />
+      <Footer />
     </>
   )
 }
