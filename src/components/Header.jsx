@@ -1,8 +1,11 @@
+import { useAuth } from '../hooks/useAuth'
 import { getDate } from '../utils/getDate'
 
 export function Header () {
   const user = JSON.parse(window.localStorage.getItem('user'))
+  useAuth()
   const date = getDate()
+
   return (
     <header>
       {
@@ -12,9 +15,9 @@ export function Header () {
               <span className='icon-book text-3xl' />
               <h1 className='font-bold'>Cuaderno Digital</h1>
             </div>
-            <div className='flex items-center justify-center gap-2'>
+            <div className='flex items-center justify-center gap-2 '>
               <span className='icon-heart-1 text-secondary' />
-              <p>Hola, {user.email.split('@')[0]}</p>
+              <p className='truncate'>Hola, {user.displayName}</p>
             </div>
             <div className='flex items-center justify-center absolute right-0 top-10 gap-2 sm:sticky'>
               <span className='icon-calendar text-secondary' />

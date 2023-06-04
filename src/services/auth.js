@@ -1,16 +1,19 @@
 import { app } from './config.js'
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from 'firebase/auth'
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth'
 
 const auth = getAuth()
 
-export const createUser = async (email, password, name) => {
+export const createUser = async (name, email, password) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-    const userCurrent = updateProfile(userCredential, {
+
+    // update profile
+    await updateProfile(userCredential.user, {
       displayName: name,
       photoURL: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJ9J4o1n77Jtkz4DCltlA_lhqTZGgTUoIYRw&usqp=CAU'
     })
-    return userCurrent
+
+    return userCredential
   } catch (error) {
     return error.message
   }
@@ -24,8 +27,6 @@ export const loginUser = async (email, password) => {
     return error.message
   }
 }
-
-export const authState = (user) => onAuthStateChanged(auth, user)
 
 export const logoutUser = async () => {
   try {

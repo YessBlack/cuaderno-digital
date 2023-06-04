@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { createUser, loginUser } from '../services/auth'
+import { createUser, loginUser, logoutUser } from '../services/auth'
+import { useNavigate } from 'react-router-dom'
 
 export function useAuth () {
   const [error, setError] = useState(null)
@@ -7,8 +8,8 @@ export function useAuth () {
   const [userRegister, setUserRegister] = useState(null)
   const navigate = useNavigate()
 
-  const register = async (email, password) => {
-    const res = await createUser(email, password)
+  const register = async (name, email, password) => {
+    const res = await createUser(name, email, password)
     if (typeof res === 'string') {
       setError(res)
     } else {
@@ -30,15 +31,10 @@ export function useAuth () {
     }
   }
 
-  const checkUser = async () => {
-    const user = await authState()
-    console.log(user)
-  }
-
   const logout = () => {
     setUser(null)
-    window.localStorage.removeItem('user')
     logoutUser()
+    window.localStorage.removeItem('user')
   }
 
   useEffect(() => {
@@ -50,7 +46,6 @@ export function useAuth () {
     register,
     login,
     logout,
-    checkUser,
     error,
     user,
     userRegister
