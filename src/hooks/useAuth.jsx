@@ -35,7 +35,6 @@ export function useAuth () {
     setUser(null)
     logoutUser()
     window.localStorage.removeItem('user')
-    window.location.reload()
   }
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 
 export function Welcome () {
+  console.log('Welcome')
   return (
     <section className='flex flex-col justify-center items-center mb-4'>
       <div className='flex flex-col items-center justify-between border-primary border p-5 rounded-3xl max-w-[500px] w-full h-[75vh] shadow-2xl max-h-[500px]'>
