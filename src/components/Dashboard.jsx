@@ -4,6 +4,7 @@ import { TaskInputBar } from './TaskInputBar'
 
 export function Dashboard () {
   const { tasks } = useTask()
+  console.log(tasks)
 
   return (
     <main className='flex flex-col items-center justify-center'>
@@ -13,6 +14,7 @@ export function Dashboard () {
         tasks?.map(task => (
           <CardTask
             key={task.id}
+            id={task.id}
             task={task.task}
             completed={task.completed}
           />
