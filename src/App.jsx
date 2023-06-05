@@ -3,21 +3,25 @@ import { Welcome } from './components/Welcome'
 import './App.css'
 import { Register } from './components/Register'
 import { Login } from './components/Login'
+import { Dashboard } from './components/Dashboard'
+import { Header } from './components/Header'
+import { Footer } from './components/Footer'
+import { AuthGuard } from './guards/auth.guard'
 
 function App () {
   const user = window.localStorage.getItem('user')
-  // console.log(user)
+
+  if (user) {
+    window.history.replaceState(null, '', '/home')
+  }
+
   return (
     <>
-      <img
-        src='/public/background.svg'
-        alt='background'
-        className='w-full sticky top-0 h-[18vh] object-cover'
-      />
+      <Header />
       <Routes>
         <Route
           path='/'
-          element={<Welcome />}
+          element={user ? <Dashboard /> : <Welcome />}
         />
         <Route
           path='/register'
@@ -27,12 +31,15 @@ function App () {
           path='/login'
           element={<Login />}
         />
-        <Route
-          path='/home'
-          element={user && <Welcome />}
-        />
+        <Route element={<AuthGuard />}>
+          <Route
+            path='/home'
+            element={<Dashboard />}
+          />
+        </Route>
+        <Route path='*' element={<h1>404</h1>} />
       </Routes>
-      <footer className='w-full bg-primary fixed bottom-0 h-[30px]' />
+      <Footer />
     </>
   )
 }
