@@ -12,6 +12,11 @@ export default {
       buttonPrimary: '#870B85',
       buttonSecondary: '#AC0C63',
       buttonTertiary: '#E18D8D',
+      borderColorIncomplete: '#FFDC26',
+      borderColorComplete: '#51FF25',
+      colorIncomplete: '#FFF9D9',
+      colorComplete: '#DFFFDA',
+      gray: '#8E8E8E',
       white: '#FFFFFF'
     },
     extend: {
