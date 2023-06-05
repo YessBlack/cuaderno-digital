@@ -17,7 +17,7 @@ export function Header () {
             </div>
             <div className='flex items-center justify-center gap-2 '>
               <span className='icon-heart-1 text-secondary' />
-              <p className='truncate'>Hola, {user.displayName}</p>
+              <p className='truncate'>Hola, {user.displayName.split('').slice(0, 12)}...</p>
             </div>
             <div className='flex items-center justify-center absolute right-0 top-10 gap-2 sm:sticky'>
               <span className='icon-calendar text-secondary' />
