@@ -11,6 +11,10 @@ export function Footer () {
     navigate('/')
   }
 
+  const handleHome = () => {
+    window.scrollTo(0, 0)
+  }
+
   return (
     <>
       {
@@ -18,7 +22,7 @@ export function Footer () {
           ? (
             <footer className='w-full bg-primary fixed bottom-0 h-[40px] text-white'>
               <div className='relative z-10 flex justify-between items-center text-secondary text-xl'>
-                <span className='icon-home' />
+                <span className='icon-home' onClick={handleHome} />
                 <img className='w-[37px] object-cover rounded-full' src={user.photoURL} alt='foto de perfil' />
                 <span className='icon-sign-out' onClick={handleLogout} />
               </div>

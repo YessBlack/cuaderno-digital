@@ -4,6 +4,7 @@ import { getDate } from '../utils/getDate'
 export function CardTask ({ id, task, completed }) {
   const date = getDate()
   const status = completed ? 'border-borderColorComplete bg-colorComplete' : 'border-borderColorIncomplete bg-colorIncomplete'
+  const checked = completed ? 'text-green' : ''
 
   const handleDelete = (id) => {
     deleteTask(id)
@@ -18,7 +19,7 @@ export function CardTask ({ id, task, completed }) {
       <p className='font-bold'>{date}</p>
       <p>{task}</p>
       <div className='flex justify-between w-full'>
-        <button className='icon-check-square text-2xl text-gray hover:text-borderColorComplete' onClick={() => hnadleComplete(id, !completed)} />
+        <button className={`${checked} icon-check-square text-2xl text-gray hover:text-borderColorComplete`} onClick={() => hnadleComplete(id, !completed)} />
         <button className='icon-trash-o text-2xl text-tertiary' onClick={() => handleDelete(id)} />
       </div>
     </article>

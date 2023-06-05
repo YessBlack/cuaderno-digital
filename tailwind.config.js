@@ -17,6 +17,7 @@ export default {
       colorIncomplete: '#FFF9D9',
       colorComplete: '#DFFFDA',
       gray: '#8E8E8E',
+      green: '#00DC23',
       white: '#FFFFFF'
     },
     extend: {
