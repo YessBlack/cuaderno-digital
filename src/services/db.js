@@ -1,6 +1,7 @@
 import { collection, addDoc, doc, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore'
 
 import { db } from './config.js'
+import { sortTasks } from '../utils/sortTasks.js'
 
 export const createTask = async (task) => {
   try {
@@ -21,7 +22,8 @@ export const onGetTasks = (callback, idUser) => {
         tasks.push({ ...doc.data(), id: doc.id })
       }
     })
-    callback(tasks)
+    const tasksOrd = sortTasks(tasks)
+    callback(tasksOrd)
   })
   return unsubscribe
 }

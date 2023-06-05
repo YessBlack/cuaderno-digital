@@ -4,10 +4,9 @@ import { TaskInputBar } from './TaskInputBar'
 
 export function Dashboard () {
   const { tasks } = useTask()
-  console.log(tasks)
 
   return (
-    <main className='flex flex-col items-center justify-center'>
+    <main className='flex flex-col items-center justify-center mb-5'>
       <TaskInputBar />
       <section className='flex items-center justify-center flex-wrap gap-4 mt-3'>
         {

@@ -10,7 +10,7 @@ export function CardTask ({ id, task, completed }) {
     deleteTask(id)
   }
 
-  const hnadleComplete = (id, completed) => {
+  const handleComplete = (id, completed) => {
     updateTask(id, completed)
   }
 
@@ -19,7 +19,7 @@ export function CardTask ({ id, task, completed }) {
       <p className='font-bold'>{date}</p>
       <p>{task}</p>
       <div className='flex justify-between w-full'>
-        <button className={`${checked} icon-check-square text-2xl text-gray hover:text-borderColorComplete`} onClick={() => hnadleComplete(id, !completed)} />
+        <button className={`${checked} icon-check-square text-2xl text-gray hover:text-borderColorComplete`} onClick={() => handleComplete(id, !completed)} />
         <button className='icon-trash-o text-2xl text-tertiary' onClick={() => handleDelete(id)} />
       </div>
     </article>

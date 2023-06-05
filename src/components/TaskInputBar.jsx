@@ -12,6 +12,7 @@ export function TaskInputBar () {
       completed: false
     }
     createTask(data)
+    e.target.reset()
   }
 
   return (
