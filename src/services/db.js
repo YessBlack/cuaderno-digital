@@ -1,4 +1,4 @@
-import { collection, addDoc, doc, onSnapshot, getDocs, deleteDoc } from 'firebase/firestore'
+import { collection, addDoc, doc, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore'
 
 import { db } from './config.js'
 
@@ -29,6 +29,17 @@ export const onGetTasks = (callback, idUser) => {
 export const deleteTask = async (id) => {
   try {
     await deleteDoc(doc(db, 'tasks', id))
+  } catch (e) {
+    return e
+  }
+}
+
+export const updateTask = async (id, completed) => {
+  try {
+    const ref = doc(db, 'tasks', id)
+    await updateDoc(ref, {
+      completed
+    })
   } catch (e) {
     return e
   }
