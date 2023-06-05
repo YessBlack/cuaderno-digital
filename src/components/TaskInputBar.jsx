@@ -5,28 +5,23 @@ export function TaskInputBar () {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const data = Object.fromEntries(new FormData(e.target))
-    const task = {
-      ...data,
+    const task = e.target.task.value
+    const data = {
+      task,
       idUser: user.uid,
       completed: false
     }
-    createTask(task)
+    createTask(data)
   }
 
   return (
-    <section className='flex flex-col justify-between rounded-2xl p-2 bg-buttonSecondary max-w-[800px] w-[100%] mt-1 sm:flex-row'>
+    <section className='flex flex-col justify-between rounded-2xl p-3 bg-buttonSecondary max-w-[800px] w-[100%] mt-1 sm:flex-row'>
 
-      <form className='flex flex-wrap flex-col items-end justify-around gap-2 w-[100%] sm:flex-row' onSubmit={handleSubmit}>
+      <form className='flex gap-2 w-[100%]' onSubmit={handleSubmit}>
         <input
           type='text'
-          className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center w-full sm:w-[200px]' placeholder='Titulo'
-          name='title'
-        />
-        <input
-          type='text'
-          className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center w-full sm:w-[360px] lg:w-[500px]' placeholder='Descripcion'
-          name='description'
+          className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center w-[100%]' placeholder='Tarea'
+          name='task'
         />
         <button className='flex items-center  justify-center bg-buttonTertiary w-[45px] rounded-full'><span className='icon-plus text-tertiary text-3xl mt-1' /></button>
       </form>
