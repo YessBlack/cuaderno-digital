@@ -27,7 +27,7 @@ export function Header () {
         )
       }
       <img
-        src='/public/background.svg'
+        src='/background.svg'
         alt='background'
         className='w-full sticky top-0 h-[18vh] object-cover'
       />
