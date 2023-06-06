@@ -77,3 +77,7 @@ Además, implementé un diseño de respuesta para garantizar que la aplicación 
 ### Retos y soluciones
 
 Durante el desarrollo, uno de los principales desafíos fue sincronizar los datos en tiempo real entre la aplicación y Firebase Firestore. Para superar esto, utilicé las capacidades de escucha en tiempo real de Firestore y actualicé la interfaz de usuario en consecuencia cuando se producían cambios en los datos.
+
+## Video de presentación
+
+[Ver video en YouTube](https://youtu.be/dGZ45zfa_U0)
