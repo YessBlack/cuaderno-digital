@@ -20,6 +20,8 @@ export function Register () {
     autoClose: 2000
   })
 
+  console.log('Ajustes')
+
   return (
     <>
       <ToastContainer />
