@@ -25,4 +25,4 @@ dist-ssr
 .env.local
 .env.production
 
-src/components/Register.jsx
+src/components/Welcome.jsx
