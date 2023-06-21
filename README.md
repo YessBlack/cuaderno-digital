@@ -81,3 +81,5 @@ Durante el desarrollo, uno de los principales desafíos fue sincronizar los dato
 ## Video de presentación
 
 [Ver video en YouTube](https://youtu.be/dGZ45zfa_U0)
+
+
