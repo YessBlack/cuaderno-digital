@@ -1,0 +1,129 @@
+name: CI Test
+run-name: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.run_number }}
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run ESLint
+        run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    env:
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy to Firebase Hosting
+        run: firebase deploy --only hosting --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+  notifications:
+    runs-on: ubuntu-latest
+    needs: [lint, test, build, deploy]
+    steps:
+      - name: Notify Deployment Result
+        if: always()
+        run: |
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            MESSAGE="✅ *Deployment succeeded!* The project was successfully deployed to Firebase Hosting."
+          else
+            MESSAGE="❌ *Deployment failed!* Please check the GitHub Actions logs."
+          fi
+
+          # Enviar mensaje a Slack si el webhook está configurado
+          if [ -n "${SLACK_WEBHOOK}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\": \"${MESSAGE}\"}" \
+              "$SLACK_WEBHOOK"
+          else
+            echo "No Slack webhook configured, skipping notification."
+          fi
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Notify PR Info to Slack
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_URL=${{ github.event.pull_request.html_url }}
+          AUTHOR=${{ github.event.pull_request.user.login }}
+
+          MESSAGE=":tada: *Nuevo PR abierto/actualizado* por *${AUTHOR}* \n>*#${PR_NUMBER}* - ${PR_TITLE}\n${PR_URL}"
+
+          if [ -n "${SLACK_WEBHOOK}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\": \"${MESSAGE}\"}" \
+              "$SLACK_WEBHOOK"
+          else
+            echo "No Slack webhook configured, skipping PR notification."
+          fi
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
