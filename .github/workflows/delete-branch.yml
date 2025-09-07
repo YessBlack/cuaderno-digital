@@ -11,14 +11,17 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh -y
+
       - name: Delete branch after merge
         run: |
           BRANCH_NAME=${{ github.event.pull_request.head.ref }}
-          if [ "$BRANCH_NAME" != "main" ]; then
+          if [ "$BRANCH_NAME" != "main" ] && [ "$BRANCH_NAME" != "dev" ]; then
             echo "Deleting branch $BRANCH_NAME..."
             gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH_NAME"
           else
-            echo "Skipping, not deleting main branch."
+            echo "Skipping, not deleting main or develop branch."
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

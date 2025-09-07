@@ -7,6 +7,7 @@ on:
 jobs:
   create-draft-pr:
     runs-on: ubuntu-latest
+    if: github.ref_name != 'main' && github.ref_name != 'dev' && github.ref_name != 'staging'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -16,7 +17,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           base: main
-          head: ${{ github.ref_name }}  # rama que se acaba de crear
+          head: ${{ github.ref_name }}
           title: "Draft PR: ${{ github.ref_name }}"
           body: |
             Este PR se ha generado automáticamente.
