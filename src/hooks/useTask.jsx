@@ -8,7 +8,7 @@ export function useTask () {
   useEffect(() => {
     const response = onGetTasks(setTasks, user.uid)
     return () => response()
-  }, [])
+  }, [user.uid])
 
   return {
     tasks
