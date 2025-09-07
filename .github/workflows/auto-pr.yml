@@ -4,6 +4,7 @@ on:
   create:
     branches:
       - '**'
+
 jobs:
   create-draft-pr:
     runs-on: ubuntu-latest
@@ -15,8 +16,8 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: main
-          head: ${{ github.ref_name }}  # rama que se acaba de crear
+          base: dev
+          branch: ${{ github.ref_name }}
           title: "Draft PR: ${{ github.ref_name }}"
           body: |
             Este PR se ha generado automáticamente.
