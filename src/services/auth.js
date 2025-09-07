@@ -1,4 +1,3 @@
-import { app } from './config.js'
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth'
 
 const auth = getAuth()
@@ -7,7 +6,6 @@ export const createUser = async (name, email, password) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password)
 
-    // update profile
     await updateProfile(userCredential.user, {
       displayName: name,
       photoURL: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJ9J4o1n77Jtkz4DCltlA_lhqTZGgTUoIYRw&usqp=CAU'
