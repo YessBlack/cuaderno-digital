@@ -1,0 +1,24 @@
+name: Auto Draft PR
+
+on:
+  create:
+    branches:
+      - '**'
+jobs:
+  create-draft-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Create Draft PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
+          head: ${{ github.ref_name }}  # rama que se acaba de crear
+          title: "Draft PR: ${{ github.ref_name }}"
+          body: |
+            Este PR se ha generado automáticamente.
+            Usa la plantilla de PR si aplica.
+          draft: true
