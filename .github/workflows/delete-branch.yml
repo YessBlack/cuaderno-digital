@@ -13,8 +13,6 @@ jobs:
   delete_merged_branch:
     name: Delete Merged Branch
     runs-on: ubuntu-latest
-
-    # Only run if the PR was actually merged (not just closed)
     if: github.event.pull_request.merged == true
 
     steps:
@@ -27,7 +25,7 @@ jobs:
           echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
           echo "pr_title=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
 
-     # Step 2: Check if branch should be protected from deletion
+      # Step 2: Check if branch should be protected from deletion
       - name: Check if branch is protected
         id: check_protected
         run: |
