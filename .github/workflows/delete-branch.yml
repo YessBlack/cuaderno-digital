@@ -64,11 +64,11 @@ jobs:
       # Step 4: Log the action taken
       - name: Log Cleanup Action
         run: |
-          BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
-          TARGET_BRANCH=${{ steps.branch_info.outputs.target_branch }}
-          PR_NUMBER=${{ steps.branch_info.outputs.pr_number }}
-          PR_TITLE=${{ steps.branch_info.outputs.pr_title }}
-          IS_PROTECTED=${{ steps.check_protected.outputs.is_protected }}
+          BRANCH_NAME="${{ steps.branch_info.outputs.source_branch }}"
+          TARGET_BRANCH="${{ steps.branch_info.outputs.target_branch }}"
+          PR_NUMBER="${{ steps.branch_info.outputs.pr_number }}"
+          PR_TITLE="${{ steps.branch_info.outputs.pr_title }}"
+          IS_PROTECTED="${{ steps.check_protected.outputs.is_protected }}"
 
           echo ":clipboard: Branch Cleanup Summary:"
           echo "   PR #$PR_NUMBER: $PR_TITLE"
