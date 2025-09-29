@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { AuthForm } from './AuthForm'
 import { ToastContainer, toast } from 'react-toastify'
 
 export function Register () {
+  const { t } = useTranslation()
   const { register, userRegister, error } = useAuth()
 
   const handleSubmit = (e) => {
@@ -15,7 +17,7 @@ export function Register () {
     position: 'top-center'
   })
 
-  userRegister && toast.success('Usuario registrado con éxito', {
+  userRegister && toast.success(t('Usuario registrado con éxito'), {
     position: 'top-center',
     autoClose: 2000
   })
@@ -24,8 +26,8 @@ export function Register () {
     <>
       <ToastContainer />
       <AuthForm
-        title='Registrarse'
-        buttonText='Registrarse'
+        title={t('Registrarse')}
+        buttonText={t('Registrarse')}
         handleSubmit={handleSubmit}
         showNameField
       />

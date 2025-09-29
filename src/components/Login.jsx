@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { AuthForm } from './AuthForm'
 import { ToastContainer, toast } from 'react-toastify'
 
 export function Login () {
+  const { t } = useTranslation()
   const { login, error } = useAuth()
 
   const handleSubmit = (e) => {
@@ -19,8 +21,8 @@ export function Login () {
     <>
       <ToastContainer />
       <AuthForm
-        title='Iniciar sesión'
-        buttonText='Iniciar sesión'
+        title={t('Iniciar sesión')}
+        buttonText={t('Iniciar sesión')}
         handleSubmit={handleSubmit}
         showNameField={false}
       />

@@ -3,9 +3,9 @@ run-name: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.run_number }}
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   lint:
@@ -17,7 +17,7 @@ jobs:
       - name: Configure node
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
 
       - name: Install dependencies
         run: npm install
@@ -35,7 +35,7 @@ jobs:
       - name: Configure node
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
 
       - name: Install dependencies
         run: npm install
@@ -60,7 +60,7 @@ jobs:
       - name: Configure node
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
 
       - name: Install dependencies
         run: npm install
@@ -157,3 +157,40 @@ jobs:
           fi
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  sync_develop:
+    name: Sync develop with main
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: success()
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+      - name: Check if sync is needed
+        id: check_sync
+        run: |
+          git fetch origin main develop
+          AHEAD_COUNT=$(git rev-list --count origin/develop..origin/main)
+          if [ "$AHEAD_COUNT" -eq 0 ]; then
+            echo "sync_needed=false" >> $GITHUB_OUTPUT
+            echo "✅ develop ya está actualizado con main."
+          else
+            echo "sync_needed=true" >> $GITHUB_OUTPUT
+            echo "🔄 Se encontraron $AHEAD_COUNT commits en main que no están en develop."
+          fi
+
+      - name: Merge main into develop
+        if: steps.check_sync.outputs.sync_needed == 'true'
+        run: |
+          git checkout develop
+          git pull origin develop
+          git diff --quiet develop origin/main || git merge origin/main --no-edit -m "chore: sync develop with main [skip ci]"
+          git push origin develop
