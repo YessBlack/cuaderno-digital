@@ -163,38 +163,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy
     if: success()
+
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: dev
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Setup Git
         run: |
-          git config user.name "github-actions[bot]"
+          git config user.name "github-actions"
           git config user.email "actions@github.com"
 
-      - name: Fetch all branches
-        run: git fetch origin main dev
-
-      - name: Check if dev is behind main
+      - name: Check if sync is needed
         id: check_sync
         run: |
-          AHEAD_COUNT=$(git rev-list --count origin/dev..origin/main)
+          git fetch origin main
+          AHEAD_COUNT=$(git rev-list --count HEAD..origin/main)
           if [ "$AHEAD_COUNT" -eq 0 ]; then
             echo "sync_needed=false" >> $GITHUB_OUTPUT
-            echo "✅ dev already up-to-date with main"
+            echo "✅ dev ya está actualizado con main."
           else
             echo "sync_needed=true" >> $GITHUB_OUTPUT
-            echo "🔄 dev is behind main by $AHEAD_COUNT commits"
+            echo "🔄 Se encontraron $AHEAD_COUNT commits en main que no están en dev."
           fi
 
-      - name: Rebase dev onto main
+      - name: Merge main into dev
         if: steps.check_sync.outputs.sync_needed == 'true'
         run: |
-          git checkout dev
-          git pull --rebase origin dev
-          git rebase origin/main || { echo "❌ Conflicts detected, aborting rebase"; git rebase --abort; exit 1; }
-          git push origin dev --force-with-lease
+          git merge origin/main --no-edit -m "chore: sync dev with main [skip ci]"
+          git push origin dev
