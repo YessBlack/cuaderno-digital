@@ -1,4 +1,8 @@
+import { useTranslation } from 'react-i18next'
+
 export function AuthForm ({ title, buttonText, handleSubmit, showNameField }) {
+  const { t } = useTranslation()
+
   return (
     <section className='flex flex-col justify-center items-center m-4'>
       <div className='flex flex-col items-center justify-evenly border-primary border p-5 rounded-3xl max-w-[500px] w-full h-[75vh] shadow-2xl max-h-[500px]'>
@@ -8,18 +12,18 @@ export function AuthForm ({ title, buttonText, handleSubmit, showNameField }) {
             showNameField &&
               <input
                 type='text'
-                className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center' placeholder='Nombre'
+                className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center' placeholder={t('Nombre')}
                 name='name'
               />
           }
           <input
             type='email'
-            className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center' placeholder='Correo'
+            className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center' placeholder={t('Correo')}
             name='email'
           />
           <input
             type='password'
-            className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center' placeholder='Contraseña'
+            className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center' placeholder={t('Contraseña')}
             name='password'
           />
           <div className='flex flex-col gap-4'>

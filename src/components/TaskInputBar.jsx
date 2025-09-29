@@ -1,6 +1,9 @@
+import { useTranslation } from 'react-i18next'
 import { createTask } from '../services/db'
 
 export function TaskInputBar () {
+  const { t } = useTranslation()
+
   const user = JSON.parse(window.localStorage.getItem('user'))
 
   const handleSubmit = (e) => {
@@ -21,7 +24,7 @@ export function TaskInputBar () {
       <form className='flex gap-2 w-[100%]' onSubmit={handleSubmit}>
         <input
           type='text'
-          className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center w-[100%]' placeholder='Tarea'
+          className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center w-[100%]' placeholder={t('Tarea')}
           name='task'
         />
         <button className='flex items-center  justify-center bg-buttonTertiary w-[45px] rounded-full'><span className='icon-plus text-tertiary text-3xl mt-1' /></button>
