@@ -9,7 +9,7 @@ import { Footer } from './components/Footer'
 import { AuthGuard } from './guards/auth.guard'
 import { useTranslation } from 'react-i18next'
 
-function App() {
+function App () {
   const { t } = useTranslation()
   const user = window.localStorage.getItem('user')
 
