@@ -14,30 +14,40 @@ permissions:
   actions: read
 
 jobs:
-  prepare_release:
+  create_release_pr:
     runs-on: ubuntu-latest
-    outputs:
-      needs_release: ${{ steps.release_check.outputs.needs_release }}
-      latest_tag: ${{ steps.latest_tag.outputs.latest_tag }}
-      prs_file: ${{ steps.pull_requests.outputs.prs_file }}
 
     steps:
-      - name: Checkout dev
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: dev
           fetch-depth: 0
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
       - name: Check if release is needed
         id: release_check
         run: |
+          # Fetch all branches
           git fetch origin main dev
+
+          # Check if main is behind dev
           AHEAD_COUNT=$(git rev-list --count origin/main..origin/dev)
 
           if [ "$AHEAD_COUNT" -eq 0 ]; then
+            echo "❌ No release needed: main and dev are up to date"
             echo "needs_release=false" >> $GITHUB_OUTPUT
-            exit 0
+            exit 1
           else
+            echo "✅ Release needed: main is $AHEAD_COUNT commits behind dev"
             echo "needs_release=true" >> $GITHUB_OUTPUT
           fi
 
@@ -46,92 +56,114 @@ jobs:
         run: |
           LATEST_TAG=$(git tag --sort=-version:refname | head -1)
           echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "Found latest tag: ${LATEST_TAG}"
 
       - name: Get pull requests since latest tag
         id: pull_requests
         run: |
           LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
+
+          echo "🔍 Finding PRs included in dev but not in main..."
+
+          # Get commits that are in dev but not in main
           COMMITS_IN_DEVELOP=$(git log --oneline origin/main..origin/dev --pretty=format:"%H")
 
           if [ -z "$COMMITS_IN_DEVELOP" ]; then
+            echo "No commits found in dev that aren't in main"
             PRS="No changes to release - dev and main are in sync"
           else
-            ALL_DEVELOP_PRS=$(gh pr list --state merged --base dev --limit 50 \
-              --json number,title,author,mergeCommit,url \
-              --template '{{range .}}{{.number}}:{{.title}}:{{.author.login}}:{{.mergeCommit.oid}}:{{.url}}{{"\n"}}{{end}}')
-
+            echo "Found commits in dev not in main, searching for their PRs..."
+            
+            # Get PRs that target dev and are merged
+            ALL_DEVELOP_PRS=$(gh pr list --state merged --base dev --limit 50 --json number,title,author,mergeCommit,url --template '{{range .}}{{.number}}:{{.title}}:{{.author.login}}:{{.mergeCommit.oid}}:{{.url}}{{"\n"}}{{end}}')
+            
+            # Filter PRs whose merge commits are in our commit list
             PRS=""
             while IFS= read -r commit; do
-              MATCHING_PR=$(echo "$ALL_DEVELOP_PRS" | grep ":$commit:" | head -1 || true)
-              if [ -n "$MATCHING_PR" ]; then
-                PR_NUM=$(echo "$MATCHING_PR" | cut -d: -f1)
-                PR_TITLE=$(echo "$MATCHING_PR" | cut -d: -f2)
-                PR_AUTHOR=$(echo "$MATCHING_PR" | cut -d: -f3)
-                PR_URL=$(echo "$MATCHING_PR" | cut -d: -f5)
-                PRS="$PRS- [#$PR_NUM]($PR_URL) - $PR_TITLE - @$PR_AUTHOR"$'\n'
+              if [ -n "$commit" ]; then
+                # Find PR with this merge commit
+                MATCHING_PR=$(echo "$ALL_DEVELOP_PRS" | grep ":$commit:" | head -1)
+                if [ -n "$MATCHING_PR" ]; then
+                  PR_NUM=$(echo "$MATCHING_PR" | cut -d: -f1)
+                  PR_TITLE=$(echo "$MATCHING_PR" | cut -d: -f2)
+                  PR_AUTHOR=$(echo "$MATCHING_PR" | cut -d: -f3)
+                  PR_URL=$(echo "$MATCHING_PR" | cut -d: -f5)
+                  PRS="$PRS- [#$PR_NUM]($PR_URL) - $PR_TITLE - @$PR_AUTHOR"$'\n'
+                fi
               fi
             done <<< "$COMMITS_IN_DEVELOP"
+            
+            # Fallback: if no PRs found with commit matching, get recent dev PRs
+            if [ -z "$PRS" ]; then
+              echo "No PRs found with commit matching, getting recent dev PRs..."
+              PRS=$(gh pr list --state merged --base dev --limit 10 --json number,title,author,url --template '{{range .}}{{printf "- [#%v](%s) - %s - @%s\n" .number .url .title .author.login}}{{end}}')
+              
+              if [ -z "$PRS" ]; then
+                PRS="No merged PRs found targeting dev branch"
+              fi
+            fi
           fi
 
+          echo "📋 Found PRs to include in release:"
+          echo "$PRS"
           echo "$PRS" > prs.txt
           echo "prs_file=prs.txt" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  create_branch_and_bump:
-    runs-on: ubuntu-latest
-    needs: prepare_release
-    if: needs.prepare_release.outputs.needs_release == 'true'
-    outputs:
-      branch_name: ${{ steps.set_branch.outputs.branch_name }}
-
-    steps:
-      - name: Checkout dev
-        uses: actions/checkout@v4
-        with:
-          ref: dev
-          fetch-depth: 0
-
       - name: Create release branch
-        id: set_branch
         run: |
+          # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           BRANCH_NAME="release/${{ inputs.release_version }}"
-          git checkout -b "$BRANCH_NAME"
-          git push origin "$BRANCH_NAME"
 
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          # Ensure we're on dev and get latest changes
+          git checkout dev
+          git pull origin dev
+
+          # Clean up existing release branch if it exists
+          if git show-ref --quiet refs/heads/$BRANCH_NAME; then
+            echo "🧹 Deleting existing local branch: $BRANCH_NAME"
+            git branch -D "$BRANCH_NAME"
+          fi
+
+          if git show-ref --quiet refs/remotes/origin/$BRANCH_NAME; then
+            echo "🧹 Deleting existing remote branch: $BRANCH_NAME"
+            git push origin --delete "$BRANCH_NAME"
+          fi
+
+          # Create fresh release branch from dev
+          git checkout -b "$BRANCH_NAME"
+
+          git push origin "$BRANCH_NAME"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Update package.json version
         run: |
+          # Update version in package.json
           VERSION="${{ inputs.release_version }}"
+          # Ensure clean version number (remove 'v' prefix if present)
           VERSION_NUMBER=${VERSION#v}
 
-          npm install
+          # Update package.json version
           npm version "$VERSION_NUMBER" --no-git-tag-version
 
+          # Commit the version change
           git add package.json
           git commit -m "chore: bump version to $VERSION_NUMBER [skip ci]"
-          git push origin "${{ steps.set_branch.outputs.branch_name }}"
+          git push origin "${{ env.BRANCH_NAME }}"
 
-  open_pr:
-    runs-on: ubuntu-latest
-    needs: [prepare_release, create_branch_and_bump]
-    if: needs.prepare_release.outputs.needs_release == 'true'
-
-    steps:
-      - name: Checkout release branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.create_branch_and_bump.outputs.branch_name }}
-
-      - name: Create PR body
+      - name: Create Pull Request
         run: |
-          LATEST_TAG="${{ needs.prepare_release.outputs.latest_tag }}"
-          PRS=$(cat ${{ needs.prepare_release.outputs.prs_file }})
+          LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
+          BRANCH_NAME="${{ env.BRANCH_NAME }}"
 
+          # Read PRs from file
+          PRS=$(cat prs.txt)
+
+          # Create PR body
           cat > pr_body.md << EOF
           ## RELEASE ${{ inputs.release_version }} 🚀
 
@@ -160,14 +192,26 @@ jobs:
           ## 🤖 Release prepared automatically by GitHub Actions by @${{ github.actor }}
           EOF
 
-      - name: Open Pull Request
-        run: |
+          # Create the PR from dev to main
           gh pr create \
             --title "🚀 RELEASE ${{ inputs.release_version }}" \
             --body-file pr_body.md \
             --base main \
-            --head "${{ needs.create_branch_and_bump.outputs.branch_name }}" \
+            --head "$BRANCH_NAME" \
             --label "release" \
             --assignee "${{ github.actor }}"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Comment with PR details
+        run: |
+          echo "✅ Release PR created successfully!"
+          echo "📋 Version: ${{ inputs.release_version }}"
+          echo "📝 Name: ${{ inputs.release_name }}"
+          echo "🌿 Branch: ${{ env.BRANCH_NAME }}"
+          if [ "${{ env.TRANSLATION_CHANGES }}" = "true" ]; then
+            echo "🌐 Translation changes: Updated and committed"
+          else
+            echo "🌐 Translation changes: None needed"
+          fi
+          echo "🔗 Check the PR in GitHub to review all changes."
