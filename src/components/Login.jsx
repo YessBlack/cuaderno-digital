@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { AuthForm } from './AuthForm'
 import { ToastContainer, toast } from 'react-toastify'
 
-export function Login() {
+export function Login () {
   const { t } = useTranslation()
   const { login, error } = useAuth()
 
