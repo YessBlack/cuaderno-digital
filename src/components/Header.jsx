@@ -1,9 +1,12 @@
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { getDate } from '../utils/getDate'
 
 export function Header () {
-  const user = JSON.parse(window.localStorage.getItem('user'))
+  const { t } = useTranslation()
   useAuth()
+
+  const user = JSON.parse(window.localStorage.getItem('user'))
   const date = getDate()
 
   return (
@@ -13,11 +16,11 @@ export function Header () {
           <div className='absolute z-10 text-white w-[100%] flex-wrap text-sm sm:text-lg flex items-center justify-between '>
             <div className='flex items-center justify-center text-secondary  gap-2'>
               <span className='icon-book text-3xl' />
-              <h1 className='font-bold'>Cuaderno Digital</h1>
+              <h1 className='font-bold'>{t('Cuaderno Digital')}</h1>
             </div>
             <div className='flex items-center justify-center gap-2 '>
               <span className='icon-heart-1 text-secondary' />
-              <p className='truncate'>Hola, {user.displayName.split('').slice(0, 12)}...</p>
+              <p className='truncate'>{t('Hola, {{userName}}...', { userName: user.displayName.split('').slice(0, 12) })}</p>
             </div>
             <div className='flex items-center justify-center absolute right-0 top-10 gap-2 sm:sticky'>
               <span className='icon-calendar text-secondary' />
