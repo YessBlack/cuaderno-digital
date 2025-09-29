@@ -158,39 +158,43 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-  sync_develop:
-    name: Sync develop with main
+  sync_dev:
+    name: Sync dev with main
     runs-on: ubuntu-latest
     needs: deploy
     if: success()
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: dev
+          persist-credentials: false
 
       - name: Setup Git
         run: |
-          git config user.name "github-actions"
+          git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
 
-      - name: Check if sync is needed
+      - name: Fetch all branches
+        run: git fetch origin main dev
+
+      - name: Check if dev is behind main
         id: check_sync
         run: |
-          git fetch origin main develop
-          AHEAD_COUNT=$(git rev-list --count origin/develop..origin/main)
+          AHEAD_COUNT=$(git rev-list --count origin/dev..origin/main)
           if [ "$AHEAD_COUNT" -eq 0 ]; then
             echo "sync_needed=false" >> $GITHUB_OUTPUT
-            echo "✅ develop ya está actualizado con main."
+            echo "✅ dev already up-to-date with main"
           else
             echo "sync_needed=true" >> $GITHUB_OUTPUT
-            echo "🔄 Se encontraron $AHEAD_COUNT commits en main que no están en develop."
+            echo "🔄 dev is behind main by $AHEAD_COUNT commits"
           fi
 
-      - name: Merge main into develop
+      - name: Rebase dev onto main
         if: steps.check_sync.outputs.sync_needed == 'true'
         run: |
-          git checkout develop
-          git pull origin develop
-          git diff --quiet develop origin/main || git merge origin/main --no-edit -m "chore: sync develop with main [skip ci]"
-          git push origin develop
+          git checkout dev
+          git pull --rebase origin dev
+          git rebase origin/main || { echo "❌ Conflicts detected, aborting rebase"; git rebase --abort; exit 1; }
+          git push origin dev --force-with-lease
