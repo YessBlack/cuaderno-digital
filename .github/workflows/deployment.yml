@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -192,6 +196,9 @@ jobs:
 
       - name: Merge main into dev
         if: steps.check_sync.outputs.sync_needed == 'true'
+        env:
+          PAT_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
         run: |
+          git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/YessBlack/cuaderno-digital.git
           git merge origin/main --no-edit -m "chore: sync dev with main [skip ci]"
           git push origin dev
