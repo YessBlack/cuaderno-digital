@@ -161,7 +161,7 @@ jobs:
   sync_develop:
     name: Sync develop with main
     runs-on: ubuntu-latest
-    needs: build_and_deploy
+    needs: deploy
     if: success()
 
     steps:
