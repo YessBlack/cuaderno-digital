@@ -39,7 +39,6 @@ jobs:
           else
             echo "✅ Release needed: main is $AHEAD_COUNT commits behind dev"
             echo "needs_release=true" >> $GITHUB_OUTPUT
-          fi
 
   prepare_release_branch:
     name: Prepare Release Branch
@@ -125,11 +124,21 @@ jobs:
       - name: Gather PRs for Release
         id: pull_requests
         run: |
-          # List merged PRs targeting dev
-          PRS=$(gh pr list --state merged --base dev --limit 50 --json number,title,author,url --template '{{range .}}{{printf "- [#%v](%s) - %s - @%s\n" .number .url .title .author.login}}{{end}}')
+          # Fetch commits in dev not in main
+          git fetch origin main dev
+          COMMITS_IN_DEV=$(git log origin/main..origin/dev --pretty=format:"%H")
+
+          PRS=""
+          while read commit; do
+            MATCHING_PR=$(gh pr list --state merged --base dev --json number,title,author,mergeCommit,url \
+              --jq ".[] | select(.mergeCommit.oid==\"$commit\") | \"- [#\(.number)](\(.url)) - \(.title) - @\(.author.login)\"")
+            if [ -n "$MATCHING_PR" ]; then
+              PRS="$PRS$MATCHING_PR"$'\n'
+            fi
+          done <<< "$COMMITS_IN_DEV"
 
           if [ -z "$PRS" ]; then
-            PRS="No merged PRs found targeting dev branch"
+            PRS="No new PRs to include in release"
           fi
 
           echo "$PRS" > prs.txt
