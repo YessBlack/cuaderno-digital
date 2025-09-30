@@ -118,37 +118,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  sync:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-          ref: dev
-
-      - name: Auto-rebase dev with main
-        run: |
-          echo "🔄 Rebasing dev branch with main to include version updates..."
-
-          # Fetch latest changes
-          git fetch origin main dev
-
-          # Checkout dev
-          git checkout dev
-
-          # Pull latest dev changes
-          git pull origin dev
-
-          # Rebase dev with main to include the version update
-          git rebase origin/main
-
-          # Push the rebased dev
-          git push origin dev --force-with-lease
-
-          echo "✅ dev branch rebased successfully with main"
-
   notifications:
     runs-on: ubuntu-latest
     needs: [lint, test, build, deploy]
