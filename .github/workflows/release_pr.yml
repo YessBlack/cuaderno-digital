@@ -137,13 +137,17 @@ jobs:
             git commit --no-edit
           fi
 
+      - name: Set branch name
+        id: set_branch
+        run: echo "branch_name=release/${RELEASE_VERSION#v}" >> $GITHUB_OUTPUT
+
       - name: Update package.json Version
         run: |
           VERSION_NUMBER=${RELEASE_VERSION#v}
           npm version "$VERSION_NUMBER" --no-git-tag-version
           git add package.json package-lock.json
           git commit -m "chore: bump version to $VERSION_NUMBER [skip ci]"
-          git push origin "$BRANCH_NAME"
+          git push origin "${{ steps.set_branch.outputs.branch_name }}"
 
   create_release_pr:
     name: Create Release Pull Request
