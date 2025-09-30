@@ -21,24 +21,22 @@ jobs:
       needs_release: ${{ steps.release_check.outputs.needs_release }}
 
     steps:
-      - name: Checkout Dev Branch
+      - name: Checkout develop Branch
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: develop
           fetch-depth: 0
 
       - name: Check if release is needed
         id: release_check
         run: |
-          git fetch origin main dev
-
-          AHEAD_COUNT=$(git rev-list --count origin/main..origin/dev)
-
+          git fetch origin main develop
+          AHEAD_COUNT=$(git rev-list --count origin/main..origin/develop)
           if [ "$AHEAD_COUNT" -eq 0 ]; then
-            echo "❌ No release needed: main and dev are up to date"
+            echo "❌ No release needed: main and develop are up to date"
             echo "needs_release=false" >> $GITHUB_OUTPUT
           else
-            echo "✅ Release needed: main is $AHEAD_COUNT commits behind dev"
+            echo "✅ Release needed: main is $AHEAD_COUNT commits behind develop"
             echo "needs_release=true" >> $GITHUB_OUTPUT
           fi
 
@@ -49,10 +47,10 @@ jobs:
     if: needs.check_release_needed.outputs.needs_release == 'true'
 
     steps:
-      - name: Checkout Dev Branch
+      - name: Checkout develop Branch
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: develop
           fetch-depth: 0
 
       - name: Set up Node.js
@@ -71,10 +69,8 @@ jobs:
         run: |
           set -e
           BASE_PATH="src/resources/i18n"
-
           # Detectar automáticamente todos los idiomas
           LANGS=($(find "$BASE_PATH" -mindepth 1 -maxdepth 1 -type d -exec basename {} \;))
-
           for LANG in "${LANGS[@]}"; do
             FILE="$BASE_PATH/$LANG/translation.json"
             
@@ -92,7 +88,6 @@ jobs:
               exit 1
             fi
           done
-
           echo "✅ Todas las traducciones están completas"
 
   prepare_release_branch:
@@ -106,10 +101,10 @@ jobs:
       branch_name: ${{ steps.set_branch.outputs.branch_name }}
 
     steps:
-      - name: Checkout Dev Branch
+      - name: Checkout develop Branch
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: develop
           fetch-depth: 0
 
       - name: Set up Node.js
@@ -126,26 +121,30 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Merge main into release
-        run: |
-          git fetch origin main
+      - name: Configure Git Merge Driver for package.json
+        run: git config merge.ours.driver true
 
-          if ! git merge origin/main --no-edit -m "chore: sync with main [skip ci]"; then
-            # Si hay conflicto en package.json, usar versión de dev
-            git checkout --ours package.json package-lock.json
-            git add package.json package-lock.json
-            git commit --no-edit
-          fi
-
-      - name: Set branch name
+      - name: Create Release Branch
         id: set_branch
-        run: echo "branch_name=release/${RELEASE_VERSION#v}" >> $GITHUB_OUTPUT
-
+        run: |
+          BRANCH_NAME="release/${RELEASE_VERSION}"
+          # Delete local branch if exists
+          if git show-ref --quiet refs/heads/$BRANCH_NAME; then
+            git branch -D "$BRANCH_NAME"
+          fi
+          # Delete remote branch if exists
+          if git show-ref --quiet refs/remotes/origin/$BRANCH_NAME; then
+            git push origin --delete "$BRANCH_NAME"
+          fi
+          # Create fresh branch from develop
+          git checkout -b "$BRANCH_NAME"
+          git push origin "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
       - name: Update package.json Version
         run: |
           VERSION_NUMBER=${RELEASE_VERSION#v}
           npm version "$VERSION_NUMBER" --no-git-tag-version
-          git add package.json package-lock.json
+          git add package.json
           git commit -m "chore: bump version to $VERSION_NUMBER [skip ci]"
           git push origin "${{ steps.set_branch.outputs.branch_name }}"
 
@@ -175,57 +174,46 @@ jobs:
       - name: Gather PRs for Release
         id: pull_requests
         run: |
-          # Fetch commits in dev not in main
-          git fetch origin main dev
-          COMMITS_IN_DEV=$(git log origin/main..origin/dev --pretty=format:"%H")
-
+          # Fetch commits in develop not in main
+          git fetch origin main develop
+          COMMITS_IN_DEVELOP=$(git log origin/main..origin/develop --pretty=format:"%H")
           PRS=""
           while read commit; do
-            MATCHING_PR=$(gh pr list --state merged --base dev --json number,title,author,mergeCommit,url \
+            MATCHING_PR=$(gh pr list --state merged --base develop --json number,title,author,mergeCommit,url \
               --jq ".[] | select(.mergeCommit.oid==\"$commit\") | \"- [#\(.number)](\(.url)) - \(.title) - @\(.author.login)\"")
             if [ -n "$MATCHING_PR" ]; then
               PRS="$PRS$MATCHING_PR"$'\n'
             fi
-          done <<< "$COMMITS_IN_DEV"
-
+          done <<< "$COMMITS_IN_DEVELOP"
           if [ -z "$PRS" ]; then
             PRS="No new PRs to include in release"
           fi
-
           echo "$PRS" > prs.txt
           echo "prs_file=prs.txt" >> $GITHUB_OUTPUT
-
       - name: Create PR Body from Template
         run: |
           LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
           BRANCH_NAME="${{ needs.prepare_release_branch.outputs.branch_name }}"
           PRS=$(cat prs.txt)
-
           cat > pr_body.md << EOF
           ## RELEASE $RELEASE_VERSION 🚀
-
           ### Summary
           This PR prepares RELEASE **$RELEASE_VERSION**.
-
           ### Tag Comparison
           **Previous tag:** ${LATEST_TAG}
           **New tag:** $RELEASE_VERSION
-
           ### Pull Requests Included
           $PRS
-
           ### Pre-release Checklist
           - [ ] Review all included changes
           - [ ] Verify translations are complete
           - [ ] Confirm version is correct
           - [ ] Test critical functionalities
-
           ### Next Steps
           Once this PR is approved and merged:
           1. Tag $RELEASE_VERSION will be created automatically
           2. GitHub release notes will be generated
           3. Package.json version will be updated
-
           ## 🤖 Release prepared automatically by GitHub Actions by @${{ github.actor }}
           EOF
 
@@ -238,7 +226,6 @@ jobs:
             --head "${{ needs.prepare_release_branch.outputs.branch_name }}" \
             --label "release" \
             --assignee "${{ github.actor }}"
-
       - name: Notify Completion
         run: |
           echo "✅ Release PR created successfully!"

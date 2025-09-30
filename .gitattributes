@@ -1,0 +1,3 @@
+# Siempre usar nuestra versión para package.json y package-lock.json
+package.json merge=ours
+package-lock.json merge=ours
