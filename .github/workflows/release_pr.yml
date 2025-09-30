@@ -147,39 +147,35 @@ jobs:
 
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-      - name: Merge main into release (resolve package.json conflict)
+      - name: Rebase release on main (resolve package.json conflict)
         run: |
           set -e
 
-          echo "🔄 Syncing release branch with main..."
+          echo "🔄 Rebasing release branch onto main..."
           git fetch origin main
 
-          # Verificar si hay commits pendientes
-          COMMITS=$(git rev-list --count HEAD..origin/main)
-          if [ "$COMMITS" -eq 0 ]; then
-            echo "✅ Release branch is already up to date"
-            exit 0
+          # Intenta rebase
+          if git rebase origin/main; then
+            echo "✅ Rebase completed cleanly"
+          else
+            echo "⚠️ Conflicts detected during rebase"
+
+            # Resolver package.json automáticamente
+            if git diff --name-only --diff-filter=U | grep -q "^package\.json$"; then
+              echo "📦 Resolving package.json by keeping release version"
+              git checkout --ours package.json
+              git add package.json
+              git rebase --continue || true
+            fi
           fi
 
-          echo "📊 Found $COMMITS commits to merge from main"
-          git merge origin/main --no-edit -m "chore: sync with main before release [skip ci]" || true
-
-          # Verificar si hubo conflicto en package.json
-          if git diff --name-only --diff-filter=U | grep -q "^package\.json$"; then
-            echo "⚠️ Conflict detected in package.json → keeping current (dev) version"
-            git checkout --ours package.json
-            git add package.json
-            git commit --no-edit
-            echo "✅ Conflict resolved automatically (package.json kept)"
-          fi
-
-          # Si aún hay conflictos, abortar
+          # Verificar conflictos restantes
           if git diff --name-only --diff-filter=U | grep -q .; then
             echo "❌ Unresolved conflicts remain, manual resolution required"
             exit 1
           fi
 
-          echo "🎉 Sync with main completed successfully"
+          echo "🎉 Rebase completed successfully"
 
       - name: Update package.json Version
         run: |
