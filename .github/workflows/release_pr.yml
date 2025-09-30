@@ -48,24 +48,40 @@ jobs:
     if: needs.check_release_needed.outputs.needs_release == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Extract translations
+        run: npm run extract-translations
 
       - name: Verify translations completeness
         run: |
           set -e
           BASE_PATH="src/resources/i18n"
-          LANGS=("en-US" "es-MX" "fr-FR") # Ajusta según tus idiomas
+
+          # Detectar automáticamente todos los idiomas
+          LANGS=($(find "$BASE_PATH" -mindepth 1 -maxdepth 1 -type d -exec basename {} \;))
 
           for LANG in "${LANGS[@]}"; do
             FILE="$BASE_PATH/$LANG/translation.json"
+            
             if [ ! -f "$FILE" ]; then
               echo "❌ Archivo no encontrado: $FILE"
               exit 1
             fi
             
-            # Buscar valores MISSING_TRANSLATION
+            # Buscar valores MISSING_TRANSLATION en cualquier clave
             MISSING=$(jq -r 'paths as $p | select(getpath($p) == "MISSING_TRANSLATION") | $p | join(".")' "$FILE")
             
             if [ -n "$MISSING" ]; then

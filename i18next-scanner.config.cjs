@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs')
+const path = require('path')
 
 module.exports = {
   input: './src/**/*.{js,jsx}',
@@ -8,7 +8,7 @@ module.exports = {
     debug: true,
     func: {
       list: ['t'], // buscar t('key')
-      extensions: ['.js', '.jsx'],
+      extensions: ['.js', '.jsx']
     },
     trans: {
       component: 'Trans', // <Trans>...</Trans>
@@ -18,8 +18,8 @@ module.exports = {
       fallbackKey: (ns, value) => value,
       acorn: {
         ecmaVersion: 11,
-        sourceType: 'module',
-      },
+        sourceType: 'module'
+      }
     },
     lngs: ['es-MX', 'en-US', 'pt-BR', 'fr-FR'],
     defaultLng: 'es-MX',
@@ -27,33 +27,33 @@ module.exports = {
       const translationFilePath = path.resolve(
         __dirname,
         `src/resources/i18n/${lng}/translation.json`
-      );
+      )
 
-      let translations = {};
+      let translations = {}
       if (fs.existsSync(translationFilePath)) {
         const translationFileContent = fs.readFileSync(
           translationFilePath,
           'utf8'
-        );
-        translations = translationFileContent ? JSON.parse(translationFileContent) : {};
+        )
+        translations = translationFileContent ? JSON.parse(translationFileContent) : {}
       }
 
       return (
         translations[key] ||
         (lng === 'es-MX' ? key : 'MISSING_TRANSLATION')
-      );
+      )
     },
     resource: {
       loadPath: 'i18n/{{lng}}/{{ns}}.json',
       savePath: 'i18n/{{lng}}/{{ns}}.json',
       jsonIndent: 2,
-      lineEnding: '\n',
+      lineEnding: '\n'
     },
     nsSeparator: false,
     keySeparator: false,
     interpolation: {
       prefix: '{{',
-      suffix: '}}',
-    },
-  },
-};
+      suffix: '}}'
+    }
+  }
+}
