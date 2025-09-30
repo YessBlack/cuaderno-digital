@@ -126,61 +126,24 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Create Release Branch
-        id: set_branch
+      - name: Merge main into release
         run: |
-          BRANCH_NAME="release/${RELEASE_VERSION}"
+          git fetch origin main
 
-          # Delete local branch if exists
-          if git show-ref --quiet refs/heads/$BRANCH_NAME; then
-            git branch -D "$BRANCH_NAME"
+          if ! git merge origin/main --no-edit -m "chore: sync with main [skip ci]"; then
+            # Si hay conflicto en package.json, usar versión de dev
+            git checkout --ours package.json package-lock.json
+            git add package.json package-lock.json
+            git commit --no-edit
           fi
-
-          # Delete remote branch if exists
-          if git show-ref --quiet refs/remotes/origin/$BRANCH_NAME; then
-            git push origin --delete "$BRANCH_NAME"
-          fi
-
-          # Create fresh branch from dev
-          git checkout -b "$BRANCH_NAME"
-          git push origin "$BRANCH_NAME"
-
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
       - name: Update package.json Version
         run: |
           VERSION_NUMBER=${RELEASE_VERSION#v}
           npm version "$VERSION_NUMBER" --no-git-tag-version
-          git add package.json
+          git add package.json package-lock.json
           git commit -m "chore: bump version to $VERSION_NUMBER [skip ci]"
-          git push origin "${{ steps.set_branch.outputs.branch_name }}"
-
-      - name: Rebase release on main (resolve package.json conflict)
-        run: |
-          set -e
-          echo "🔄 Rebasing release branch onto main..."
-
-          git add package.json
-          git commit -m "chore: bump version to ${{ env.RELEASE_VERSION }} [skip ci]" || true
-
-          git fetch origin main
-
-          git rebase origin/main || true
-
-          if git diff --name-only --diff-filter=U | grep -q "^package\.json$"; then
-            echo "⚠️ Conflict detected in package.json → keeping release version"
-            git checkout --ours package.json
-            git add package.json
-            git rebase --continue || true
-          fi
-
-          if git diff --name-only --diff-filter=U | grep -q .; then
-            echo "❌ Unresolved conflicts remain, manual resolution required"
-            exit 1
-          fi
-
-          echo "🎉 Rebase completed successfully (package.json kept from release)"
-          git push origin HEAD --force
+          git push origin "$BRANCH_NAME"
 
   create_release_pr:
     name: Create Release Pull Request
