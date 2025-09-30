@@ -16,3 +16,8 @@ export const getTime = () => {
 
   return `${hours}:${minutes < 10 ? `0${minutes}` : minutes}`
 }
+
+export const getDateTime = () => {
+  const dateNow = new Date()
+  return dateNow.toISOString()
+}
