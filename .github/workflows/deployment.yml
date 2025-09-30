@@ -128,13 +128,26 @@ jobs:
           fetch-depth: 0
           ref: dev
 
-      - name: Merge main into dev
+      - name: Auto-rebase dev with main
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git merge origin/main --no-ff -m "chore: sync main into dev after release [skip ci]"
-          git push origin dev
+          echo "🔄 Rebasing dev branch with main to include version updates..."
+
+          # Fetch latest changes
+          git fetch origin main dev
+
+          # Checkout dev
+          git checkout dev
+
+          # Pull latest dev changes
+          git pull origin dev
+
+          # Rebase dev with main to include the version update
+          git rebase origin/main
+
+          # Push the rebased dev
+          git push origin dev --force-with-lease
+
+          echo "✅ dev branch rebased successfully with main"
 
   notifications:
     runs-on: ubuntu-latest
