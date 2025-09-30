@@ -147,36 +147,6 @@ jobs:
 
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-      - name: Rebase release on main (resolve package.json conflict)
-        run: |
-          set -e
-
-          echo "🔄 Rebasing release branch onto main..."
-          git fetch origin main
-
-          # Intenta rebase
-          if git rebase origin/main; then
-            echo "✅ Rebase completed cleanly"
-          else
-            echo "⚠️ Conflicts detected during rebase"
-
-            # Resolver package.json automáticamente
-            if git diff --name-only --diff-filter=U | grep -q "^package\.json$"; then
-              echo "📦 Resolving package.json by keeping release version"
-              git checkout --ours package.json
-              git add package.json
-              git rebase --continue || true
-            fi
-          fi
-
-          # Verificar conflictos restantes
-          if git diff --name-only --diff-filter=U | grep -q .; then
-            echo "❌ Unresolved conflicts remain, manual resolution required"
-            exit 1
-          fi
-
-          echo "🎉 Rebase completed successfully"
-
       - name: Update package.json Version
         run: |
           VERSION_NUMBER=${RELEASE_VERSION#v}
@@ -184,6 +154,29 @@ jobs:
           git add package.json
           git commit -m "chore: bump version to $VERSION_NUMBER [skip ci]"
           git push origin "${{ steps.set_branch.outputs.branch_name }}"
+
+      - name: Rebase release on main (resolve package.json conflict)
+        run: |
+          set -e
+          echo "🔄 Rebasing release branch onto main..."
+          git fetch origin main
+
+          git rebase origin/main || true
+
+          if git diff --name-only --diff-filter=U | grep -q "^package\.json$"; then
+            echo "⚠️ Conflict detected in package.json → keeping release version"
+            git checkout --ours package.json
+            git add package.json
+            git rebase --continue || true
+          fi
+
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo "❌ Unresolved conflicts remain, manual resolution required"
+            exit 1
+          fi
+
+          echo "🎉 Rebase completed successfully (package.json kept from release)"
+          git push origin HEAD --force
 
   create_release_pr:
     name: Create Release Pull Request
