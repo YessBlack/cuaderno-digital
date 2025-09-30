@@ -49,9 +49,10 @@ jobs:
     if: needs.check_release_needed.outputs.needs_release == 'true'
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Dev Branch
         uses: actions/checkout@v4
         with:
+          ref: dev
           fetch-depth: 0
 
       - name: Set up Node.js

@@ -8,3 +8,11 @@ export function getDate () {
 
   return `${day}, ${dateNow.getDate()} de ${month} del ${dateNow.getFullYear()}`
 }
+
+export const getTime = () => {
+  const dateNow = new Date()
+  const hours = dateNow.getHours()
+  const minutes = dateNow.getMinutes()
+
+  return `${hours}:${minutes < 10 ? `0${minutes}` : minutes}`
+}
