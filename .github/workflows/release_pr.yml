@@ -40,7 +40,6 @@ jobs:
           else
             echo "✅ Release needed: main is $AHEAD_COUNT commits behind dev"
             echo "needs_release=true" >> $GITHUB_OUTPUT
-          fi
 
   verify-translations:
     name: Verify Translations Completeness
@@ -62,7 +61,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Extract translations
         run: npm run extract-translations
