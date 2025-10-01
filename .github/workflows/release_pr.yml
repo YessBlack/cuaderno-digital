@@ -21,22 +21,22 @@ jobs:
       needs_release: ${{ steps.release_check.outputs.needs_release }}
 
     steps:
-      - name: Checkout develop Branch
+      - name: Checkout dev Branch
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: dev
           fetch-depth: 0
 
       - name: Check if release is needed
         id: release_check
         run: |
-          git fetch origin main develop
-          AHEAD_COUNT=$(git rev-list --count origin/main..origin/develop)
+          git fetch origin main dev
+          AHEAD_COUNT=$(git rev-list --count origin/main..origin/dev)
           if [ "$AHEAD_COUNT" -eq 0 ]; then
-            echo "❌ No release needed: main and develop are up to date"
+            echo "❌ No release needed: main and dev are up to date"
             echo "needs_release=false" >> $GITHUB_OUTPUT
           else
-            echo "✅ Release needed: main is $AHEAD_COUNT commits behind develop"
+            echo "✅ Release needed: main is $AHEAD_COUNT commits behind dev"
             echo "needs_release=true" >> $GITHUB_OUTPUT
           fi
 
@@ -47,10 +47,10 @@ jobs:
     if: needs.check_release_needed.outputs.needs_release == 'true'
 
     steps:
-      - name: Checkout develop Branch
+      - name: Checkout dev Branch
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: dev
           fetch-depth: 0
 
       - name: Set up Node.js
@@ -101,10 +101,10 @@ jobs:
       branch_name: ${{ steps.set_branch.outputs.branch_name }}
 
     steps:
-      - name: Checkout develop Branch
+      - name: Checkout dev Branch
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: dev
           fetch-depth: 0
 
       - name: Set up Node.js
@@ -128,18 +128,22 @@ jobs:
         id: set_branch
         run: |
           BRANCH_NAME="release/${RELEASE_VERSION}"
+
           # Delete local branch if exists
           if git show-ref --quiet refs/heads/$BRANCH_NAME; then
             git branch -D "$BRANCH_NAME"
           fi
+
           # Delete remote branch if exists
           if git show-ref --quiet refs/remotes/origin/$BRANCH_NAME; then
             git push origin --delete "$BRANCH_NAME"
           fi
-          # Create fresh branch from develop
+
+          # Create fresh branch from dev
           git checkout -b "$BRANCH_NAME"
           git push origin "$BRANCH_NAME"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
       - name: Update package.json Version
         run: |
           VERSION_NUMBER=${RELEASE_VERSION#v}
@@ -174,17 +178,17 @@ jobs:
       - name: Gather PRs for Release
         id: pull_requests
         run: |
-          # Fetch commits in develop not in main
-          git fetch origin main develop
-          COMMITS_IN_DEVELOP=$(git log origin/main..origin/develop --pretty=format:"%H")
+          # Fetch commits in dev not in main
+          git fetch origin main dev
+          COMMITS_IN_DEV=$(git log origin/main..origin/dev --pretty=format:"%H")
           PRS=""
           while read commit; do
-            MATCHING_PR=$(gh pr list --state merged --base develop --json number,title,author,mergeCommit,url \
+            MATCHING_PR=$(gh pr list --state merged --base dev --json number,title,author,mergeCommit,url \
               --jq ".[] | select(.mergeCommit.oid==\"$commit\") | \"- [#\(.number)](\(.url)) - \(.title) - @\(.author.login)\"")
             if [ -n "$MATCHING_PR" ]; then
               PRS="$PRS$MATCHING_PR"$'\n'
             fi
-          done <<< "$COMMITS_IN_DEVELOP"
+          done <<< "$COMMITS_IN_DEV"
           if [ -z "$PRS" ]; then
             PRS="No new PRs to include in release"
           fi
