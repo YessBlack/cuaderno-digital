@@ -10,14 +10,3 @@ export function sortTasks (tasks) {
   })
   return tasksSort
 }
-
-const sortTasksByDate = (tasks) => {
-  const tasksSort = tasks.sort((a, b) => {
-    const dateA = new Date(a.date)
-    const dateB = new Date(b.date)
-    return dateA - dateB
-  })
-  return tasksSort
-}
-
-export { sortTasksByDate }
