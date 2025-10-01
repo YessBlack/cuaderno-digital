@@ -141,14 +141,6 @@ jobs:
           git push origin "$BRANCH_NAME"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-      - name: Update package.json Version
-        run: |
-          VERSION_NUMBER=${RELEASE_VERSION#v}
-          npm version "$VERSION_NUMBER" --no-git-tag-version
-          git add package.json
-          git commit -m "chore: bump version to $VERSION_NUMBER [skip ci]"
-          git push origin "${{ steps.set_branch.outputs.branch_name }}"
-
       - name: Merge main into release
         run: |
           git fetch origin main
@@ -158,6 +150,14 @@ jobs:
             git add package.json package-lock.json
             git commit -m "Resolve package.json conflict: keep release version"
           fi
+
+      - name: Update package.json Version
+        run: |
+          VERSION_NUMBER=${RELEASE_VERSION#v}
+          npm version "$VERSION_NUMBER" --no-git-tag-version
+          git add package.json
+          git commit -m "chore: bump version to $VERSION_NUMBER [skip ci]"
+          git push origin "${{ steps.set_branch.outputs.branch_name }}"
 
   create_release_pr:
     name: Create Release Pull Request
