@@ -121,9 +121,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Configure Git Merge Driver for package.json
-        run: git config merge.ours.driver true
-
       - name: Create Release Branch
         id: set_branch
         run: |
@@ -143,6 +140,16 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           git push origin "$BRANCH_NAME"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Merge main into release
+        run: |
+          git fetch origin main
+          if ! git merge origin/main --no-edit; then
+            # Resolver conflicto solo para package.json y package-lock.json
+            git checkout --ours package.json package-lock.json
+            git add package.json package-lock.json
+            git commit -m "Resolve package.json conflict: keep release version"
+          fi
 
       - name: Update package.json Version
         run: |
@@ -194,6 +201,7 @@ jobs:
           fi
           echo "$PRS" > prs.txt
           echo "prs_file=prs.txt" >> $GITHUB_OUTPUT
+
       - name: Create PR Body from Template
         run: |
           LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
