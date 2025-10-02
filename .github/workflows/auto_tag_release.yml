@@ -13,7 +13,6 @@ permissions:
 
 jobs:
   create_tag:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
@@ -24,6 +23,7 @@ jobs:
 
       - name: Extract release info
         id: release_info
+        if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # Manual dispatch: generate version automatically
