@@ -181,3 +181,5 @@ jobs:
 
           echo "🎉 Release process completed successfully!"
           echo "📋 Tag: $VERSION created and pushed successfully for $RELEASE_NAME: https://github.com/${{ github.repository }}/releases/tag/$VERSION"
+
+          # Optional: Send notification to Slack
