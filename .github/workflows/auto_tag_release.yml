@@ -1,0 +1,207 @@
+name: RELEASE [PRODUCTION] - Create Tag
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  create_tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract release info
+        id: release_info
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual dispatch: generate version automatically
+            LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+            
+            if [ -z "$LATEST_TAG" ]; then
+              # No tags exist, start with 1.0.0
+              VERSION="1.0.0"
+            else
+              # Increment patch version
+              CURRENT_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+              MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+              MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+              PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+              NEW_PATCH=$((PATCH + 1))
+              VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+            fi
+            
+            RELEASE_NAME="Manual Release $(date +'%Y%m%d')"
+            echo "🔧 Manual dispatch: Generated version $VERSION"
+            
+          else
+            PR_BODY="${{ github.event.pull_request.body }}"
+            
+            # Push to main: extract from commit message
+            COMMIT_MSG=$(git log -1 --pretty=%B)
+            
+            # Try to extract version from commit message
+            # Supports formats: "release/1.1.10", "v1.1.10", "1.1.10", "RELEASE 1.1.10"
+            VERSION=$(echo "$COMMIT_MSG" | grep -oP '(release/|v)?([0-9]+\.[0-9]+\.[0-9]+)' | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+            
+            if [ -z "$VERSION" ]; then
+              echo "⚠️  Could not extract version from commit message, auto-generating..."
+              LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+              
+              if [ -z "$LATEST_TAG" ]; then
+                VERSION="1.0.0"
+              else
+                CURRENT_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+                MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+                MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+                PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+                NEW_PATCH=$((PATCH + 1))
+                VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+              fi
+            fi
+            
+            RELEASE_NAME="Release"
+            echo "📝 Push to main: Version $VERSION"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
+          echo "✅ Version: $VERSION"
+          echo "✅ Release name: $RELEASE_NAME"
+
+      - name: Get latest tag for comparison
+        id: latest_tag
+        run: |
+          LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "Previous tag: ${LATEST_TAG}"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "⚠️  Tag $VERSION already exists, skipping release creation"
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Tag $VERSION is available"
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate release notes
+        if: steps.check_tag.outputs.tag_exists == 'false'
+        id: release_notes
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+          LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
+
+          # Set variables based on trigger type
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TRIGGER_TYPE="Manual dispatch"
+            PR_INFO="N/A (Manual trigger)"
+            PR_AUTHOR="${{ github.actor }}"
+            IMPLEMENTATION_TEXT="This release was created manually via workflow dispatch by @${{ github.actor }}."
+          else
+            TRIGGER_TYPE="PR merge"
+            PR_INFO="[#${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})"
+            PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+            IMPLEMENTATION_TEXT="This release was created automatically after merging [PR #${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})."
+
+            # Extract PR body which contains the PR list from release_pr workflow
+            PR_BODY="${{ github.event.pull_request.body }}"
+          fi
+
+          # Create release notes
+          cat > release_notes.md << EOF
+          ## 🚀 Version $VERSION
+
+          ### Release Information
+          - **Version:** $VERSION
+          - **Previous tag:** ${LATEST_TAG:-"First release"}
+          - **Trigger:** $TRIGGER_TYPE
+          - **Pull Request:** $PR_INFO
+          - **Author:** @$PR_AUTHOR
+          - **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          ### Release Notes
+          $PR_BODY
+
+          $IMPLEMENTATION_TEXT
+
+          **Generated automatically by GitHub Actions** 🤖
+          EOF
+
+          echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
+
+      - name: Create Git Tag
+        if: steps.check_tag.outputs.tag_exists == 'false'
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create annotated tag
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            git tag -a "$VERSION" -m "Release $RELEASE_NAME ($VERSION)
+
+          Created manually via workflow dispatch
+          Author: @${{ github.actor }}
+          Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          else
+            git tag -a "$VERSION" -m "Release $RELEASE_NAME ($VERSION)
+
+          Created automatically from push to main
+          Author: $(git log -1 --pretty=%an)
+          Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          fi
+
+          # Push tag
+          git push origin "$VERSION"
+
+          echo "✅ Tag $VERSION created and pushed successfully"
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.tag_exists == 'false'
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+
+          # Create release using GitHub CLI
+          gh release create "$VERSION" \
+            --title "🚀 $RELEASE_NAME ($VERSION)" \
+            --notes-file release_notes.md \
+            --verify-tag
+            
+          echo "✅ GitHub Release created: $VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify completion
+        if: steps.check_tag.outputs.tag_exists == 'false'
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+
+          echo "🎉 Release process completed successfully!"
+          echo "📋 Tag: $VERSION"
+          echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/$VERSION"
+
+      - name: Skip notification
+        if: steps.check_tag.outputs.tag_exists == 'true'
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          echo "⏭️  Skipped: Tag $VERSION already exists"

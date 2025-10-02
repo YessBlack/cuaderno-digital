@@ -21,7 +21,7 @@ jobs:
       needs_release: ${{ steps.release_check.outputs.needs_release }}
 
     steps:
-      - name: Checkout Dev Branch
+      - name: Checkout dev Branch
         uses: actions/checkout@v4
         with:
           ref: dev
@@ -31,9 +31,7 @@ jobs:
         id: release_check
         run: |
           git fetch origin main dev
-
           AHEAD_COUNT=$(git rev-list --count origin/main..origin/dev)
-
           if [ "$AHEAD_COUNT" -eq 0 ]; then
             echo "❌ No release needed: main and dev are up to date"
             echo "needs_release=false" >> $GITHUB_OUTPUT
@@ -49,7 +47,7 @@ jobs:
     if: needs.check_release_needed.outputs.needs_release == 'true'
 
     steps:
-      - name: Checkout Dev Branch
+      - name: Checkout dev Branch
         uses: actions/checkout@v4
         with:
           ref: dev
@@ -71,10 +69,8 @@ jobs:
         run: |
           set -e
           BASE_PATH="src/resources/i18n"
-
           # Detectar automáticamente todos los idiomas
           LANGS=($(find "$BASE_PATH" -mindepth 1 -maxdepth 1 -type d -exec basename {} \;))
-
           for LANG in "${LANGS[@]}"; do
             FILE="$BASE_PATH/$LANG/translation.json"
             
@@ -92,7 +88,6 @@ jobs:
               exit 1
             fi
           done
-
           echo "✅ Todas las traducciones están completas"
 
   prepare_release_branch:
@@ -106,7 +101,7 @@ jobs:
       branch_name: ${{ steps.set_branch.outputs.branch_name }}
 
     steps:
-      - name: Checkout Dev Branch
+      - name: Checkout dev Branch
         uses: actions/checkout@v4
         with:
           ref: dev
@@ -144,8 +139,17 @@ jobs:
           # Create fresh branch from dev
           git checkout -b "$BRANCH_NAME"
           git push origin "$BRANCH_NAME"
-
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Merge main into release
+        run: |
+          git fetch origin main
+          if ! git merge origin/main --no-edit; then
+            # Resolver conflicto solo para package.json y package-lock.json
+            git checkout --ours package.json package-lock.json
+            git add package.json package-lock.json
+            git commit -m "Resolve package.json conflict: keep release version"
+          fi
 
       - name: Update package.json Version
         run: |
@@ -184,7 +188,6 @@ jobs:
           # Fetch commits in dev not in main
           git fetch origin main dev
           COMMITS_IN_DEV=$(git log origin/main..origin/dev --pretty=format:"%H")
-
           PRS=""
           while read commit; do
             MATCHING_PR=$(gh pr list --state merged --base dev --json number,title,author,mergeCommit,url \
@@ -193,11 +196,9 @@ jobs:
               PRS="$PRS$MATCHING_PR"$'\n'
             fi
           done <<< "$COMMITS_IN_DEV"
-
           if [ -z "$PRS" ]; then
             PRS="No new PRs to include in release"
           fi
-
           echo "$PRS" > prs.txt
           echo "prs_file=prs.txt" >> $GITHUB_OUTPUT
 
@@ -206,32 +207,25 @@ jobs:
           LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
           BRANCH_NAME="${{ needs.prepare_release_branch.outputs.branch_name }}"
           PRS=$(cat prs.txt)
-
           cat > pr_body.md << EOF
           ## RELEASE $RELEASE_VERSION 🚀
-
           ### Summary
           This PR prepares RELEASE **$RELEASE_VERSION**.
-
           ### Tag Comparison
           **Previous tag:** ${LATEST_TAG}
           **New tag:** $RELEASE_VERSION
-
           ### Pull Requests Included
           $PRS
-
           ### Pre-release Checklist
           - [ ] Review all included changes
           - [ ] Verify translations are complete
           - [ ] Confirm version is correct
           - [ ] Test critical functionalities
-
           ### Next Steps
           Once this PR is approved and merged:
           1. Tag $RELEASE_VERSION will be created automatically
           2. GitHub release notes will be generated
           3. Package.json version will be updated
-
           ## 🤖 Release prepared automatically by GitHub Actions by @${{ github.actor }}
           EOF
 
@@ -244,7 +238,6 @@ jobs:
             --head "${{ needs.prepare_release_branch.outputs.branch_name }}" \
             --label "release" \
             --assignee "${{ github.actor }}"
-
       - name: Notify Completion
         run: |
           echo "✅ Release PR created successfully!"
