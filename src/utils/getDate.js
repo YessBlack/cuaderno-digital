@@ -8,3 +8,13 @@ export function getDate () {
 
   return `${day}, ${dateNow.getDate()} de ${month} del ${dateNow.getFullYear()}`
 }
+
+export const getDateISO = () => {
+  const dateNow = new Date()
+  return dateNow.toISOString().split('T')[0]
+}
+
+export const getTimeNow = () => {
+  const dateNow = new Date()
+  return dateNow.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
