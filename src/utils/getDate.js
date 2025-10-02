@@ -9,23 +9,12 @@ export function getDate () {
   return `${day}, ${dateNow.getDate()} de ${month} del ${dateNow.getFullYear()}`
 }
 
-export const getTime = () => {
+export const getDateISO = () => {
   const dateNow = new Date()
-  const hours = dateNow.getHours()
-  const minutes = dateNow.getMinutes()
-
-  return `${hours}:${minutes < 10 ? `0${minutes}` : minutes}`
+  return dateNow.toISOString().split('T')[0]
 }
 
-export const getDateTime = () => {
+export const getTimeNow = () => {
   const dateNow = new Date()
-  return dateNow.toISOString()
-}
-
-export const formatDate = (dateString) => {
-  const date = new Date(dateString)
-  const day = date.getDate()
-  const month = date.getMonth() + 1
-  const year = date.getFullYear()
-  return `${day < 10 ? `0${day}` : day}/${month < 10 ? `0${month}` : month}/${year}`
+  return dateNow.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
