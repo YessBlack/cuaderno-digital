@@ -32,10 +32,8 @@ jobs:
             LATEST_TAG=$(git tag --sort=-version:refname | head -1)
             
             if [ -z "$LATEST_TAG" ]; then
-              # No tags exist, start with 1.0.0
               VERSION="1.0.0"
             else
-              # Increment patch version
               CURRENT_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
               MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
               MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
@@ -50,29 +48,24 @@ jobs:
           else
             # PR merge: extract from PR title
             PR_TITLE="${{ github.event.pull_request.title }}"
-            PR_BODY="${{ github.event.pull_request.body }}"
 
-            # Extract version from PR title (format: "🚀 RELEASE v1.0.1" or "🚀 RELEASE 1.0.1")
-            VERSION=$(echo "$PR_TITLE" | grep -oP 'RELEASE\s+(v?[0-9]+\.[0-9]+\.[0-9]+)' | sed 's/RELEASE\s*//')
-            
-            # Remove 'v' prefix if present - we want clean version numbers
-            VERSION=$(echo "$VERSION" | sed 's/^v//')
+            # Busca cualquier número con formato semver (v opcional)
+            VERSION=$(echo "$PR_TITLE" | grep -oE "v?[0-9]+\.[0-9]+\.[0-9]+" || true)
 
-            # Extract release name from PR title (just use "Release" as default)
-            RELEASE_NAME="Release"
+            # Limpia la v si existe
+            VERSION=${VERSION#v}
 
             if [ -z "$VERSION" ]; then
-              echo "❌ Could not extract version from PR title: $PR_TITLE"
+              echo "❌ No se pudo extraer la versión del título: $PR_TITLE"
               exit 1
             fi
-            
+
+            RELEASE_NAME="Release"
             echo "📝 PR merge: Extracted version $VERSION from title"
           fi
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
-          echo "✅ Version: $VERSION"
-          echo "✅ Release name: $RELEASE_NAME"
 
       - name: Get latest tag for comparison
         id: latest_tag
