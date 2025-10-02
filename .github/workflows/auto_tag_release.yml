@@ -44,6 +44,8 @@ jobs:
             echo "🔧 Manual dispatch: Generated version $VERSION"
             
           else
+            PR_BODY="${{ github.event.pull_request.body }}"
+            
             # Push to main: extract from commit message
             COMMIT_MSG=$(git log -1 --pretty=%B)
             
