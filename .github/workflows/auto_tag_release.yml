@@ -27,45 +27,20 @@ jobs:
       - name: Extract release info
         id: release_info
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # Manual dispatch: generate version automatically
-            LATEST_TAG=$(git tag --sort=-version:refname | head -1)
-            
-            if [ -z "$LATEST_TAG" ]; then
-              VERSION="1.0.0"
-            else
-              CURRENT_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
-              MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
-              MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-              PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
-              NEW_PATCH=$((PATCH + 1))
-              VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-            fi
-            
-            RELEASE_NAME="Manual Release $(date +'%Y%m%d')"
-            echo "🔧 Manual dispatch: Generated version $VERSION"
-            
-          else
-            # PR merge: extract from PR title
-            PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
 
-            # Busca cualquier número con formato semver (v opcional)
-            VERSION=$(echo "$PR_TITLE" | grep -oE "v?[0-9]+\.[0-9]+\.[0-9]+" || true)
+          # Buscar versión tipo 1.2.3 o v1.2.3
+          VERSION=$(echo "$PR_TITLE" | grep -oE "v?[0-9]+\.[0-9]+\.[0-9]+" || true)
+          VERSION=${VERSION#v}
 
-            # Limpia la v si existe
-            VERSION=${VERSION#v}
-
-            if [ -z "$VERSION" ]; then
-              echo "❌ No se pudo extraer la versión del título: $PR_TITLE"
-              exit 1
-            fi
-
-            RELEASE_NAME="Release"
-            echo "📝 PR merge: Extracted version $VERSION from title"
+          if [ -z "$VERSION" ]; then
+            echo "❌ No se pudo extraer la versión del título: $PR_TITLE"
+            exit 1
           fi
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
+          echo "release_name=Release" >> $GITHUB_OUTPUT
+          echo "📝 Extraída versión $VERSION del PR"
 
       - name: Get latest tag for comparison
         id: latest_tag
