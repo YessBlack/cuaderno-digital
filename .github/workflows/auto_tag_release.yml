@@ -104,17 +104,20 @@ jobs:
           RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
           LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
 
-          # Get commit message
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          COMMIT_AUTHOR=$(git log -1 --pretty=%an)
-
           # Set variables based on trigger type
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TRIGGER_TYPE="Manual dispatch"
+            PR_INFO="N/A (Manual trigger)"
+            PR_AUTHOR="${{ github.actor }}"
             IMPLEMENTATION_TEXT="This release was created manually via workflow dispatch by @${{ github.actor }}."
           else
-            TRIGGER_TYPE="Push to main"
-            IMPLEMENTATION_TEXT="This release was created automatically from push to main."
+            TRIGGER_TYPE="PR merge"
+            PR_INFO="[#${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})"
+            PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+            IMPLEMENTATION_TEXT="This release was created automatically after merging [PR #${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})."
+
+            # Extract PR body which contains the PR list from release_pr workflow
+            PR_BODY="${{ github.event.pull_request.body }}"
           fi
 
           # Create release notes
@@ -125,13 +128,12 @@ jobs:
           - **Version:** $VERSION
           - **Previous tag:** ${LATEST_TAG:-"First release"}
           - **Trigger:** $TRIGGER_TYPE
-          - **Author:** $COMMIT_AUTHOR
+          - **Pull Request:** $PR_INFO
+          - **Author:** @$PR_AUTHOR
           - **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
-          ### Commit Message
-          \`\`\`
-          $COMMIT_MSG
-          \`\`\`
+          ### Release Notes
+          $PR_BODY
 
           $IMPLEMENTATION_TEXT
 
