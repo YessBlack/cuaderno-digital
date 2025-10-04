@@ -1,4 +1,4 @@
-name: RELEASE [PRODUCTION] - Create Tag
+name: RELEASE [PRODUCTION] - Tag Creation
 
 on:
   pull_request:
@@ -15,10 +15,8 @@ jobs:
   create_tag:
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'workflow_dispatch') ||
-      (github.event_name == 'pull_request' && 
-       github.event.pull_request.merged == true && 
-       contains(github.event.pull_request.labels.*.name, 'release'))
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')) ||
+      (github.event_name == 'workflow_dispatch')
 
     steps:
       - name: Checkout
@@ -52,38 +50,23 @@ jobs:
           else
             # PR merge: extract from PR title
             PR_TITLE="${{ github.event.pull_request.title }}"
-            
+            PR_BODY="${{ github.event.pull_request.body }}"
+
             # Extract version from PR title (format: "🚀 RELEASE v1.0.1" or "🚀 RELEASE 1.0.1")
             VERSION=$(echo "$PR_TITLE" | grep -oP 'RELEASE\s+(v?[0-9]+\.[0-9]+\.[0-9]+)' | sed 's/RELEASE\s*//')
             
             # Remove 'v' prefix if present - we want clean version numbers
             VERSION=$(echo "$VERSION" | sed 's/^v//')
-            
-            # Fallback: try to extract from commit message
-            if [ -z "$VERSION" ]; then
-              COMMIT_MSG=$(git log -1 --pretty=%B)
-              VERSION=$(echo "$COMMIT_MSG" | grep -oP '(release/|v)?([0-9]+\.[0-9]+\.[0-9]+)' | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-            fi
 
-            # If still no version, auto-generate
+            # Extract release name from PR title (just use "Release" as default)
+            RELEASE_NAME="Release"
+
             if [ -z "$VERSION" ]; then
-              echo "⚠️  Could not extract version from PR title or commit message, auto-generating..."
-              LATEST_TAG=$(git tag --sort=-version:refname | head -1)
-              
-              if [ -z "$LATEST_TAG" ]; then
-                VERSION="1.0.0"
-              else
-                CURRENT_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
-                MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
-                MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-                PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
-                NEW_PATCH=$((PATCH + 1))
-                VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-              fi
+              echo "❌ Could not extract version from PR title: $PR_TITLE"
+              exit 1
             fi
             
-            RELEASE_NAME="Release"
-            echo "📝 PR merge: Version $VERSION"
+            echo "📝 PR merge: Extracted version $VERSION from title"
           fi
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -98,21 +81,7 @@ jobs:
           echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
           echo "Previous tag: ${LATEST_TAG}"
 
-      - name: Check if tag already exists
-        id: check_tag
-        run: |
-          VERSION="${{ steps.release_info.outputs.version }}"
-
-          if git rev-parse "$VERSION" >/dev/null 2>&1; then
-            echo "⚠️  Tag $VERSION already exists, skipping release creation"
-            echo "tag_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "✅ Tag $VERSION is available"
-            echo "tag_exists=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Generate release notes
-        if: steps.check_tag.outputs.tag_exists == 'false'
         id: release_notes
         run: |
           VERSION="${{ steps.release_info.outputs.version }}"
@@ -125,7 +94,6 @@ jobs:
             PR_INFO="N/A (Manual trigger)"
             PR_AUTHOR="${{ github.actor }}"
             IMPLEMENTATION_TEXT="This release was created manually via workflow dispatch by @${{ github.actor }}."
-            PR_BODY=""
           else
             TRIGGER_TYPE="PR merge"
             PR_INFO="[#${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})"
@@ -159,7 +127,6 @@ jobs:
           echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
 
       - name: Create Git Tag
-        if: steps.check_tag.outputs.tag_exists == 'false'
         run: |
           VERSION="${{ steps.release_info.outputs.version }}"
           RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
@@ -175,8 +142,8 @@ jobs:
           Created manually via workflow dispatch
           Author: @${{ github.actor }}
           Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-                    else
-                      git tag -a "$VERSION" -m "Release $RELEASE_NAME ($VERSION)
+          else
+            git tag -a "$VERSION" -m "Release $RELEASE_NAME ($VERSION)
 
           Created automatically from PR #${{ github.event.pull_request.number }}
           Author: @${{ github.event.pull_request.user.login }}
@@ -189,7 +156,6 @@ jobs:
           echo "✅ Tag $VERSION created and pushed successfully"
 
       - name: Create GitHub Release
-        if: steps.check_tag.outputs.tag_exists == 'false'
         run: |
           VERSION="${{ steps.release_info.outputs.version }}"
           RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
@@ -205,17 +171,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify completion
-        if: steps.check_tag.outputs.tag_exists == 'false'
         run: |
           VERSION="${{ steps.release_info.outputs.version }}"
           RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
 
           echo "🎉 Release process completed successfully!"
-          echo "📋 Tag: $VERSION created and pushed successfully"
-          echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/$VERSION"
-
-      - name: Skip notification
-        if: steps.check_tag.outputs.tag_exists == 'true'
-        run: |
-          VERSION="${{ steps.release_info.outputs.version }}"
-          echo "⏭️  Skipped: Tag $VERSION already exists"
+          echo "📋 Tag: $VERSION created and pushed successfully for $RELEASE_NAME: https://github.com/${{ github.repository }}/releases/tag/$VERSION"
