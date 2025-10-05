@@ -30,6 +30,15 @@ jobs:
           ref: dev
           fetch-depth: 0
 
+      - name: Merge main into release
+        run: |
+          git fetch origin main
+          if ! git merge origin/main --no-edit; then
+            git checkout --ours package.json package-lock.json
+            git add package.json package-lock.json
+            git commit -m "Resolve package.json conflict: keep release version"
+          fi
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -145,15 +154,6 @@ jobs:
 
           git push origin "$BRANCH_NAME"
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
-
-      - name: Merge main into release
-        run: |
-          git fetch origin main
-          if ! git merge origin/main --no-edit; then
-            git checkout --ours package.json package-lock.json
-            git add package.json package-lock.json
-            git commit -m "Resolve package.json conflict: keep release version"
-          fi
 
       - name: Update package.json version
         run: |
