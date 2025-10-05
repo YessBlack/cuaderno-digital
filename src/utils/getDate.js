@@ -18,14 +18,3 @@ export const getYear = () => {
   const dateNow = new Date()
   return dateNow.getFullYear()
 }
-
-export const getMonth = () => {
-  const moths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-  const dateNow = new Date()
-  return moths[dateNow.getMonth()]
-}
-
-export const getDay = () => {
-  const dateNow = new Date()
-  return dateNow.getDate()
-}
