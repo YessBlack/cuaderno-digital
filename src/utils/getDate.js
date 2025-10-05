@@ -24,8 +24,3 @@ export const getMonth = () => {
   const dateNow = new Date()
   return moths[dateNow.getMonth()]
 }
-
-export const getDay = () => {
-  const dateNow = new Date()
-  return dateNow.getDate()
-}
