@@ -30,14 +30,10 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Merge main into release
+      - name: Configure git identity
         run: |
-          git fetch origin main
-          if ! git merge origin/main --no-edit; then
-            git checkout --ours package.json package-lock.json
-            git add package.json package-lock.json
-            git commit -m "Resolve package.json conflict: keep release version"
-          fi
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -128,10 +124,6 @@ jobs:
 
       - name: Create release branch
         run: |
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
           BRANCH_NAME="release/${{ inputs.release_version }}"
 
           # Ensure we're on dev and get latest changes
@@ -154,6 +146,15 @@ jobs:
 
           git push origin "$BRANCH_NAME"
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Merge main into release
+        run: |
+          git fetch origin main
+          if ! git merge origin/main --no-edit; then
+            git checkout --ours package.json package-lock.json
+            git add package.json package-lock.json
+            git commit -m "Resolve package.json conflict: keep release version"
+          fi
 
       - name: Update package.json version
         run: |
@@ -216,7 +217,7 @@ jobs:
             --label "release" \
             --assignee "${{ github.actor }}"
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.GITHUB_TOKEN }}
 
       - name: Comment with PR details
         run: |
