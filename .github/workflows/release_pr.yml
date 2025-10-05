@@ -150,12 +150,20 @@ jobs:
       - name: Merge main into release
         run: |
           git fetch origin main
+
+          # Stash any local changes (like package-lock.json from npm install)
+          git stash
+
           if ! git merge origin/main --no-edit; then
             # Resolve potential conflicts by favoring current branch (release)
             git checkout --ours package.json
-            git add package.json
-            git commit -m "Resolve package.json conflict: keep release version"
+            git checkout --ours package-lock.json
+            git add package.json package-lock.json
+            git commit -m "Resolve conflicts: keep release versions"
           fi
+
+          # Restore stashed changes if any
+          git stash pop || true
 
       - name: Update package.json Version
         run: |
