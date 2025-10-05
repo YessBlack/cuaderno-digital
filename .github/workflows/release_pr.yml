@@ -147,6 +147,12 @@ jobs:
 
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
+      - name: Discard local changes before merge
+        run: |
+          # Discard any local changes before merge
+          git checkout .
+          echo "Discarded any local changes (e.g., package-lock.json) before merge."
+
       - name: Merge main into release
         run: |
           git fetch origin main
