@@ -14,37 +14,12 @@ permissions:
   actions: read
 
 jobs:
-  check_release_needed:
-    name: Check if Release is Needed
+  create_release_pr:
+    name: Create Release Pull Request
     runs-on: ubuntu-latest
-    outputs:
-      needs_release: ${{ steps.release_check.outputs.needs_release }}
-
-    steps:
-      - name: Checkout dev Branch
-        uses: actions/checkout@v4
-        with:
-          ref: dev
-          fetch-depth: 0
-
-      - name: Check if release is needed
-        id: release_check
-        run: |
-          git fetch origin main dev
-          AHEAD_COUNT=$(git rev-list --count origin/main..origin/dev)
-          if [ "$AHEAD_COUNT" -eq 0 ]; then
-            echo "❌ No release needed: main and dev are up to date"
-            echo "needs_release=false" >> $GITHUB_OUTPUT
-          else
-            echo "✅ Release needed: main is $AHEAD_COUNT commits behind dev"
-            echo "needs_release=true" >> $GITHUB_OUTPUT
-          fi
-
-  verify-translations:
-    name: Verify Translations Completeness
-    runs-on: ubuntu-latest
-    needs: check_release_needed
-    if: needs.check_release_needed.outputs.needs_release == 'true'
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_VERSION: ${{ inputs.release_version }}
 
     steps:
       - name: Checkout dev Branch
@@ -62,6 +37,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Check if release is needed
+        id: release_check
+        run: |
+          git fetch origin main dev
+          AHEAD_COUNT=$(git rev-list --count origin/main..origin/dev)
+          if [ "$AHEAD_COUNT" -eq 0 ]; then
+            echo "❌ No release needed: main and dev are up to date"
+            exit 1
+          else
+            echo "✅ Release needed: main is $AHEAD_COUNT commits behind dev"
+          fi
+
       - name: Extract translations
         run: npm run extract-translations
 
@@ -69,7 +56,6 @@ jobs:
         run: |
           set -e
           BASE_PATH="src/resources/i18n"
-          # Detectar automáticamente todos los idiomas
           LANGS=($(find "$BASE_PATH" -mindepth 1 -maxdepth 1 -type d -exec basename {} \;))
           for LANG in "${LANGS[@]}"; do
             FILE="$BASE_PATH/$LANG/translation.json"
@@ -79,7 +65,6 @@ jobs:
               exit 1
             fi
             
-            # Buscar valores MISSING_TRANSLATION en cualquier clave
             MISSING=$(jq -r 'paths as $p | select(getpath($p) == "MISSING_TRANSLATION") | $p | join(".")' "$FILE")
             
             if [ -n "$MISSING" ]; then
@@ -89,32 +74,6 @@ jobs:
             fi
           done
           echo "✅ Todas las traducciones están completas"
-
-  prepare_release_branch:
-    name: Prepare Release Branch
-    runs-on: ubuntu-latest
-    needs: [check_release_needed, verify-translations]
-    if: needs.check_release_needed.outputs.needs_release == 'true'
-    env:
-      RELEASE_VERSION: ${{ inputs.release_version }}
-    outputs:
-      branch_name: ${{ steps.set_branch.outputs.branch_name }}
-
-    steps:
-      - name: Checkout dev Branch
-        uses: actions/checkout@v4
-        with:
-          ref: dev
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm install
 
       - name: Configure Git
         run: |
@@ -126,17 +85,14 @@ jobs:
         run: |
           BRANCH_NAME="release/${RELEASE_VERSION}"
 
-          # Delete local branch if exists
           if git show-ref --quiet refs/heads/$BRANCH_NAME; then
             git branch -D "$BRANCH_NAME"
           fi
 
-          # Delete remote branch if exists
           if git show-ref --quiet refs/remotes/origin/$BRANCH_NAME; then
             git push origin --delete "$BRANCH_NAME"
           fi
 
-          # Create fresh branch from dev
           git checkout -b "$BRANCH_NAME"
           git push origin "$BRANCH_NAME"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
@@ -145,7 +101,6 @@ jobs:
         run: |
           git fetch origin main
           if ! git merge origin/main --no-edit; then
-            # Resolver conflicto solo para package.json y package-lock.json
             git checkout --ours package.json package-lock.json
             git add package.json package-lock.json
             git commit -m "Resolve package.json conflict: keep release version"
@@ -155,25 +110,9 @@ jobs:
         run: |
           VERSION_NUMBER=${RELEASE_VERSION#v}
           npm version "$VERSION_NUMBER" --no-git-tag-version
-          git add package.json
+          git add package.json package-lock.json
           git commit -m "chore: bump version to $VERSION_NUMBER [skip ci]"
           git push origin "${{ steps.set_branch.outputs.branch_name }}"
-
-  create_release_pr:
-    name: Create Release Pull Request
-    runs-on: ubuntu-latest
-    needs: [check_release_needed, prepare_release_branch]
-    if: needs.check_release_needed.outputs.needs_release == 'true'
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RELEASE_VERSION: ${{ inputs.release_version }}
-
-    steps:
-      - name: Checkout Release Branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.prepare_release_branch.outputs.branch_name }}
-          fetch-depth: 0
 
       - name: Get Latest Tag
         id: latest_tag
@@ -185,7 +124,6 @@ jobs:
       - name: Gather PRs for Release
         id: pull_requests
         run: |
-          # Fetch commits in dev not in main
           git fetch origin main dev
           COMMITS_IN_DEV=$(git log origin/main..origin/dev --pretty=format:"%H")
           PRS=""
@@ -200,12 +138,11 @@ jobs:
             PRS="No new PRs to include in release"
           fi
           echo "$PRS" > prs.txt
-          echo "prs_file=prs.txt" >> $GITHUB_OUTPUT
 
       - name: Create PR Body from Template
         run: |
           LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
-          BRANCH_NAME="${{ needs.prepare_release_branch.outputs.branch_name }}"
+          BRANCH_NAME="${{ steps.set_branch.outputs.branch_name }}"
           PRS=$(cat prs.txt)
           cat > pr_body.md << EOF
           ## RELEASE $RELEASE_VERSION 🚀
@@ -235,9 +172,10 @@ jobs:
             --title "🚀 RELEASE $RELEASE_VERSION" \
             --body-file pr_body.md \
             --base main \
-            --head "${{ needs.prepare_release_branch.outputs.branch_name }}" \
+            --head "${{ steps.set_branch.outputs.branch_name }}" \
             --label "release" \
             --assignee "${{ github.actor }}"
+
       - name: Notify Completion
         run: |
           echo "✅ Release PR created successfully!"
