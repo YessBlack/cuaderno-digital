@@ -72,7 +72,7 @@ jobs:
           set -e
           BASE_PATH="src/resources/i18n"
 
-          # Get list of language directories
+          # Get all language directories dynamically
           LANGS=($(find "$BASE_PATH" -mindepth 1 -maxdepth 1 -type d -exec basename {} \;))
 
           for LANG in "${LANGS[@]}"; do
@@ -151,19 +151,12 @@ jobs:
         run: |
           git fetch origin main
 
-          # Stash any local changes (like package-lock.json from npm install)
-          git stash
-
           if ! git merge origin/main --no-edit; then
-            # Resolve potential conflicts by favoring current branch (release)
-            git checkout --ours package.json
-            git checkout --ours package-lock.json
+            # Resolved conflict only for package.json and package-lock.json
+            git checkout --ours package.json package-lock.json
             git add package.json package-lock.json
-            git commit -m "Resolve conflicts: keep release versions"
+            git commit -m "Resolve package.json conflict: keep release version"
           fi
-
-          # Restore stashed changes if any
-          git stash pop || true
 
       - name: Update package.json Version
         run: |
