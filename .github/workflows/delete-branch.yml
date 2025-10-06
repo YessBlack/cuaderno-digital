@@ -1,9 +1,8 @@
 name: Cleanup - Delete Merged Branches
 
 on:
-  pull_request:
-    types:
-      - closed
+  pull_request_target:
+    types: [closed]
 
 permissions:
   contents: write
