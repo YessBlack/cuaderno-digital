@@ -187,34 +187,34 @@ jobs:
 
           echo "✅ Release branch cleaned up"
 
-      - name: Auto-rebase develop with main
+      - name: Auto-rebase dev with main
         run: |
-          echo "🔄 Rebasing develop branch with main to include version updates..."
+          echo "🔄 Rebasing dev branch with main to include version updates..."
 
           # Fetch latest changes to ensure we have the most recent state
-          git fetch origin main develop
+          git fetch origin main dev
 
-          # Checkout develop
-          git checkout develop
+          # Checkout dev
+          git checkout dev
 
-          # Pull latest develop changes
-          git pull origin develop
+          # Pull latest dev changes
+          git pull origin dev
 
-          # Rebase develop with main to include the version update from the merged PR
+          # Rebase dev with main to include the version update from the merged PR
           git rebase origin/main
 
-          # Push the rebased develop (use --force-with-lease for safety)
-          git push origin develop --force-with-lease
+          # Push the rebased dev (use --force-with-lease for safety)
+          git push origin dev --force-with-lease
 
-          echo "✅ develop branch rebased successfully with main"
-          echo "✅ package.json version is now synced from main to develop"
+          echo "✅ dev branch rebased successfully with main"
+          echo "✅ package.json version is now synced from main to dev"
 
       - name: Notify completion
         run: |
           VERSION="${{ steps.release_info.outputs.version }}"
           echo "🎉 Release process completed successfully!"
           echo "📦 Tag: $VERSION created and pushed: https://github.com/${{ github.repository }}/releases/tag/$VERSION"
-          echo "🔄 develop branch is now up-to-date with main (including package.json version)"
+          echo "🔄 dev branch is now up-to-date with main (including package.json version)"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "🧹 Release branch ${{ github.event.pull_request.head.ref }} has been cleaned up"
           fi
