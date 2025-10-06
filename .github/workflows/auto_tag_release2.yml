@@ -1,0 +1,220 @@
+name: RELEASE - Create Tag and Release Notes 2
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  create_tag:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')) ||
+      (github.event_name == 'workflow_dispatch')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract release info
+        id: release_info
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual dispatch: generate version automatically
+            LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+
+            if [ -z "$LATEST_TAG" ]; then
+              # No tags exist, start with 1.0.0
+              VERSION="1.0.0"
+            else
+              # Increment patch version
+              CURRENT_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+              MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+              MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+              PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+              NEW_PATCH=$((PATCH + 1))
+              VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+            fi
+
+            RELEASE_NAME="Manual Release $(date +'%Y%m%d')"
+            echo "Manual dispatch: Generated version $VERSION"
+
+          else
+            # PR merge: extract from PR title
+            PR_TITLE="${{ github.event.pull_request.title }}"
+            PR_BODY="${{ github.event.pull_request.body }}"
+
+            # Extract version from PR title (format: "🚀 RELEASE v1.0.1" or "🚀 RELEASE 1.0.1")
+            VERSION=$(echo "$PR_TITLE" | grep -oP 'RELEASE\s+(v?[0-9]+\.[0-9]+\.[0-9]+)' | sed 's/RELEASE\s*//')
+
+            # Remove 'v' prefix if present - we want clean version numbers
+            VERSION=$(echo "$VERSION" | sed 's/^v//')
+
+            # Extract release name from PR title (just use "Release" as default)
+            RELEASE_NAME="Release"
+
+            if [ -z "$VERSION" ]; then
+            echo "Error: Could not extract version from PR title: $PR_TITLE"
+            exit 1
+            fi
+
+            echo "PR merge: Extracted version $VERSION from title"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+          echo "Release name: $RELEASE_NAME"
+
+      - name: Get latest tag for comparison
+        id: latest_tag
+        run: |
+          LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "Previous tag: ${LATEST_TAG}"
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+          LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
+          GITHUB_ACTOR="${{ github.actor }}"
+
+          # Set variables based on trigger type
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TRIGGER_TYPE="Manual dispatch"
+            PR_INFO="N/A (Manual trigger)"
+            PR_AUTHOR="${GITHUB_ACTOR}"
+            IMPLEMENTATION_TEXT="This release was created manually via workflow dispatch by @${GITHUB_ACTOR}."
+            PR_BODY=""
+          else
+            TRIGGER_TYPE="PR merge"
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            PR_URL="${{ github.event.pull_request.html_url }}"
+            PR_INFO="[#${PR_NUMBER}](${PR_URL})"
+            PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+            IMPLEMENTATION_TEXT="This release was created automatically after merging [PR #${PR_NUMBER}](${PR_URL})."
+            # Extract PR body which contains the PR list from release_pr workflow
+            PR_BODY="${{ github.event.pull_request.body }}"
+          fi
+
+          CURRENT_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          # Create release notes using environment variables
+          echo "## Version ${VERSION}" > release_notes.md
+          echo "" >> release_notes.md
+          echo "### Release Information" >> release_notes.md
+          echo "- **Version:** ${VERSION}" >> release_notes.md
+          echo "- **Previous tag:** ${LATEST_TAG:-\"First release\"}" >> release_notes.md
+          echo "- **Trigger:** ${TRIGGER_TYPE}" >> release_notes.md
+          echo "- **Pull Request:** ${PR_INFO}" >> release_notes.md
+          echo "- **Author:** @${PR_AUTHOR}" >> release_notes.md
+          echo "- **Date:** ${CURRENT_DATE}" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Release Notes" >> release_notes.md
+          if [ -n "${PR_BODY}" ]; then
+            echo "${PR_BODY}" >> release_notes.md
+          fi
+          echo "" >> release_notes.md
+          echo "${IMPLEMENTATION_TEXT}" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "Generated automatically by GitHub Actions" >> release_notes.md
+
+          echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
+
+      - name: Create Git Tag
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create annotated tag with appropriate message
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            git tag -a "$VERSION" -m "Release $RELEASE_NAME ($VERSION)
+
+          Created manually via workflow dispatch
+          Author: @${{ github.actor }}
+          Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          else
+            git tag -a "$VERSION" -m "Release $RELEASE_NAME ($VERSION)
+
+          Created automatically from PR #${{ github.event.pull_request.number }}
+          Author: @${{ github.event.pull_request.user.login }}
+          Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          fi
+
+          # Push tag
+          git push origin "$VERSION"
+
+          echo "Tag $VERSION created and pushed successfully"
+
+      - name: Create GitHub Release
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+
+          # Create release using GitHub CLI
+          gh release create "$VERSION" \
+            --title "$RELEASE_NAME ($VERSION)" \
+            --notes-file release_notes.md \
+            --verify-tag
+
+          echo "GitHub Release created: $VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean up release branch
+        if: github.event_name == 'pull_request'
+        run: |
+          RELEASE_BRANCH="${{ github.event.pull_request.head.ref }}"
+
+          echo "🧹 Cleaning up release branch: $RELEASE_BRANCH"
+
+          # Delete the remote release branch
+          git push origin --delete "$RELEASE_BRANCH" || echo "Release branch already deleted or doesn't exist"
+
+          echo "✅ Release branch cleaned up"
+
+      - name: Auto-rebase develop with main
+        run: |
+          echo "🔄 Rebasing develop branch with main to include version updates..."
+
+          # Fetch latest changes to ensure we have the most recent state
+          git fetch origin main develop
+
+          # Checkout develop
+          git checkout develop
+
+          # Pull latest develop changes
+          git pull origin develop
+
+          # Rebase develop with main to include the version update from the merged PR
+          git rebase origin/main
+
+          # Push the rebased develop (use --force-with-lease for safety)
+          git push origin develop --force-with-lease
+
+          echo "✅ develop branch rebased successfully with main"
+          echo "✅ package.json version is now synced from main to develop"
+
+      - name: Notify completion
+        run: |
+          VERSION="${{ steps.release_info.outputs.version }}"
+          echo "🎉 Release process completed successfully!"
+          echo "📦 Tag: $VERSION created and pushed: https://github.com/${{ github.repository }}/releases/tag/$VERSION"
+          echo "🔄 develop branch is now up-to-date with main (including package.json version)"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "🧹 Release branch ${{ github.event.pull_request.head.ref }} has been cleaned up"
+          fi
