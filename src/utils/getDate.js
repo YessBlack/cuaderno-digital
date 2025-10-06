@@ -28,4 +28,3 @@ export const getDay = () => {
   const dateNow = new Date()
   return dateNow.getDate()
 }
-
