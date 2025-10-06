@@ -31,7 +31,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # Manual dispatch: generate version automatically
-            LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+            LATEST_TAG=$(git tag --sort=-version:refname | grep -E '^1\.[0-9]+\.[0-9]+$' | head -1)
             
             if [ -z "$LATEST_TAG" ]; then
               # No tags exist, start with 1.0.0
@@ -79,7 +79,7 @@ jobs:
       - name: Get latest tag for comparison
         id: latest_tag
         run: |
-          LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+          LATEST_TAG=$(git tag --sort=-version:refname | grep -E '^1\.[0-9]+\.[0-9]+$' | head -1)
           echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
           echo "Previous tag: ${LATEST_TAG}"
 
@@ -131,31 +131,18 @@ jobs:
       - name: Create Git Tag
         run: |
           VERSION="${{ steps.release_info.outputs.version }}"
-          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
 
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Create tag using GitHub API (this ensures "verified" badge)
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/git/refs \
+            -f ref="refs/tags/$VERSION" \
+            -f sha="${{ github.sha }}"
 
-          # Create annotated tag with appropriate message
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            git tag -a "$VERSION" -m "Release $RELEASE_NAME ($VERSION)
-
-          Created manually via workflow dispatch
-          Author: @${{ github.actor }}
-          Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          else
-            git tag -a "$VERSION" -m "Release $RELEASE_NAME ($VERSION)
-
-          Created automatically from PR #${{ github.event.pull_request.number }}
-          Author: @${{ github.event.pull_request.user.login }}
-          Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          fi
-
-          # Push tag
-          git push origin "$VERSION"
-
-          echo "✅ Tag $VERSION created and pushed successfully"
+          echo "✅ Tag $VERSION created successfully"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
         run: |
