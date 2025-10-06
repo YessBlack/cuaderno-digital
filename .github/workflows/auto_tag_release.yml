@@ -1,7 +1,7 @@
-name: RELEASE [PRODUCTION] - Tag Creation
+name: RELEASE [PRODUCTION] - Auto Tag and Release
 
 on:
-  pull_request_target:
+  pull_request:
     types: [closed]
     branches:
       - main
