@@ -38,8 +38,3 @@ export const getMinutes = () => {
   const dateNow = new Date()
   return dateNow.getMinutes()
 }
-
-export const getSeconds = () => {
-  const dateNow = new Date()
-  return dateNow.getSeconds()
-}
