@@ -23,9 +23,3 @@ export const getMonth = () => {
   const dateNow = new Date()
   return dateNow.getMonth() + 1
 }
-
-export const getDay = () => {
-  const dateNow = new Date()
-  return dateNow.getDate()
-}
-
