@@ -29,12 +29,3 @@ export const getDay = () => {
   return dateNow.getDate()
 }
 
-export const getHour = () => {
-  const dateNow = new Date()
-  return dateNow.getHours()
-}
-
-export const getMinutes = () => {
-  const dateNow = new Date()
-  return dateNow.getMinutes()
-}
