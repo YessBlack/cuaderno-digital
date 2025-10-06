@@ -13,7 +13,7 @@ jobs:
   create_release_pr:
     name: Create Release Pull Request
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.merged == true }} # Solo si el PR se cerró y mergeó
+    if: ${{ github.event.pull_request.merged == true }}
     steps:
       - name: Checkout pre-release Branch
         uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup GitHub CLI
-        uses: cli/cli-action@v3 # Para poder usar gh
+        uses: gh-cli/gh-cli-action@v2
         with:
           version: latest
 
@@ -30,13 +30,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Tomamos título y body del PR cerrado
-          PR_TITLE="${{ github.event.pull_request.title }}"
+          PRE_TITLE="${{ github.event.pull_request.title }}"   # ej: "PRE-RELEASE 1.1.1"
           PR_BODY="${{ github.event.pull_request.body }}"
-
-          # Crear PR desde pre-release hacia main
+          RELEASE_TITLE=$(echo "$PRE_TITLE" | sed 's/PRE-RELEASE/RELEASE/')
           gh pr create \
-            --title "$PR_TITLE" \
+            --title "$RELEASE_TITLE" \
             --body "$PR_BODY" \
             --base main \
             --head pre-release \
@@ -47,3 +45,4 @@ jobs:
         run: |
           echo "✅ Release PR created successfully!"
           echo "🔗 Check the PR in GitHub to review all changes."
+          echo "🚀 Next step: Merge the Release PR to main to trigger the tagging workflow."
