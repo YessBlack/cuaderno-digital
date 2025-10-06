@@ -2,7 +2,8 @@ name: RELEASE [PRODUCTION] - Tag Creation
 
 on:
   pull_request:
-    types: [closed]
+    types:
+      - closed
     branches:
       - main
   workflow_dispatch:
