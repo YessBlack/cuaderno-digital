@@ -43,13 +43,3 @@ export const getSeconds = () => {
   const dateNow = new Date()
   return dateNow.getSeconds()
 }
-
-export const getTimeISO = () => {
-  const dateNow = new Date()
-  return dateNow.toISOString().split('T')[1].split('.')[0]
-}
-
-export const getDateTimeISO = () => {
-  const dateNow = new Date()
-  return dateNow.toISOString().split('.')[0]
-}
