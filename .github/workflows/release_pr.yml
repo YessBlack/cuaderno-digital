@@ -153,16 +153,6 @@ jobs:
           git checkout .
           echo "Discarded any local changes (e.g., package-lock.json) before merge."
 
-      - name: Merge main into release
-        run: |
-          git fetch origin main
-          if ! git merge origin/main --no-edit; then
-            # Resolve potential conflicts by favoring current branch (release)
-            git checkout --ours package.json
-            git add package.json
-            git commit -m "Resolve package.json conflict: keep release version"
-          fi
-
       - name: Update package.json Version
         run: |
           VERSION_NUMBER=${RELEASE_VERSION#v}
