@@ -67,6 +67,21 @@ export const getTime = () => {
   return dateNow.getTime()
 }
 
+export const getTimezoneOffset = () => {
+  const dateNow = new Date()
+  return dateNow.getTimezoneOffset()
+}
+
+export const getUTCDate = () => {
+  const dateNow = new Date()
+  return dateNow.getUTCDate()
+}
+
+export const getUTCHours = () => {
+  const dateNow = new Date()
+  return dateNow.getUTCHours()
+}
+
 export const sincronizeDate = (date) => {
   const localDate = new Date(date)
   const userTimezoneOffset = localDate.getTimezoneOffset() * 60000
