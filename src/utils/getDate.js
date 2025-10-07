@@ -13,13 +13,3 @@ export const getDateISO = () => {
   const dateNow = new Date()
   return dateNow.toISOString().split('T')[0]
 }
-
-export const getYear = () => {
-  const dateNow = new Date()
-  return dateNow.getFullYear()
-}
-
-export const getMonth = () => {
-  const dateNow = new Date()
-  return dateNow.getMonth() + 1
-}
