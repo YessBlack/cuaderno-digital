@@ -155,13 +155,32 @@ jobs:
             git commit -m "Resolve package.json conflict: keep pre-release version"
           fi
 
-      - name: Update package.json Version
+      - name: Update package.json Version (if needed)
+        continue-on-error: true
         run: |
           VERSION_NUMBER=${RELEASE_VERSION#v}
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+
+          echo "📦 Current version: $CURRENT_VERSION"
+          echo "🎯 Target version: $VERSION_NUMBER"
+
+          if [ "$CURRENT_VERSION" = "$VERSION_NUMBER" ]; then
+            echo "✅ Version is already $VERSION_NUMBER, skipping update"
+            exit 0
+          fi
+
+          echo "🔄 Updating version from $CURRENT_VERSION to $VERSION_NUMBER"
           npm version "$VERSION_NUMBER" --no-git-tag-version
-          git add package.json
+
+          if git diff --quiet package.json; then
+            echo "ℹ️ No changes in package.json after npm version"
+            exit 0
+          fi
+
+          git add package.json package-lock.json 2>/dev/null || git add package.json
           git commit -m "chore: bump version to $VERSION_NUMBER [skip ci]"
           git push origin "${{ steps.set_branch.outputs.branch_name }}"
+          echo "✅ Version updated and pushed successfully"
 
   create_pre_release_pr:
     name: Create Pre-Release Pull Request
