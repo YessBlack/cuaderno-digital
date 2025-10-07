@@ -4,7 +4,7 @@ on:
   pull_request_target:
     types: [closed]
     branches:
-      - pre-release
+      - pre-production
 
 permissions:
   contents: write
@@ -18,11 +18,25 @@ jobs:
     if: ${{ github.event.pull_request.merged == true }}
 
     steps:
-      - name: Checkout pre-release Branch
+      - name: Checkout pre-production Branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          ref: pre-production
           fetch-depth: 0
+
+      - name: Verify Changes Exist
+        run: |
+          git fetch origin main pre-production
+
+          COMMITS=$(git rev-list --count origin/main..origin/pre-production)
+
+          if [ "$COMMITS" -eq 0 ]; then
+            echo "❌ No hay commits nuevos en pre-production respecto a main"
+            exit 1
+          fi
+
+          echo "✅ Hay $COMMITS commits nuevos en pre-production"
+          git log origin/main..origin/pre-production --oneline
 
       - name: Create Release PR
         env:
@@ -36,7 +50,7 @@ jobs:
             --title "$RELEASE_TITLE" \
             --body "$PR_BODY" \
             --base main \
-            --head pre-release \
+            --head pre-production \
             --label "release" \
             --assignee "${{ github.actor }}"
 
