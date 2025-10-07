@@ -38,17 +38,45 @@ jobs:
           echo "✅ Hay $COMMITS commits nuevos en pre-production"
           git log origin/main..origin/pre-production --oneline
 
+      - name: Transform PR Content
+        id: transform_content
+        run: |
+          PRE_TITLE="${{ github.event.pull_request.title }}"
+          PR_BODY="${{ github.event.pull_request.body }}"
+
+          # Transform title: PRE-RELEASE → RELEASE
+          RELEASE_TITLE=$(echo "$PRE_TITLE" | sed 's/PRE-RELEASE/RELEASE/g' | sed 's/🚀/🚀/')
+
+          # Transform body: PRE-RELEASE → RELEASE
+          RELEASE_BODY=$(echo "$PR_BODY" | sed 's/PRE-RELEASE/RELEASE/g' | sed 's/Pre-release/Release/g' | sed 's/pre-release/release/g')
+
+          # Replace specific phrases
+          RELEASE_BODY=$(echo "$RELEASE_BODY" | sed 's/This PR prepares PRE-RELEASE/This PR prepares RELEASE/g')
+          RELEASE_BODY=$(echo "$RELEASE_BODY" | sed 's/This PR prepares RELEASE \*\*/This PR prepares RELEASE **/g')
+
+          # Change checklist from Pre-release to Release
+          RELEASE_BODY=$(echo "$RELEASE_BODY" | sed 's/### Pre-release Checklist/### Release Checklist/g')
+
+          # Change "Pre-Release prepared" to "Release prepared"
+          RELEASE_BODY=$(echo "$RELEASE_BODY" | sed 's/Pre-Release prepared/Release prepared/g')
+
+          # Save to files to avoid issues with special characters
+          echo "$RELEASE_TITLE" > /tmp/release_title.txt
+          echo "$RELEASE_BODY" > /tmp/release_body.txt
+
+          echo "✅ Content transformed successfully"
+          echo "📝 Title: $RELEASE_TITLE"
+
       - name: Create Release PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PRE_TITLE="${{ github.event.pull_request.title }}"
-          PR_BODY="${{ github.event.pull_request.body }}"
-          RELEASE_TITLE=$(echo "$PRE_TITLE" | sed 's/PRE-RELEASE/RELEASE/')
+          RELEASE_TITLE=$(cat /tmp/release_title.txt)
+          RELEASE_BODY=$(cat /tmp/release_body.txt)
 
           gh pr create \
             --title "$RELEASE_TITLE" \
-            --body "$PR_BODY" \
+            --body "$RELEASE_BODY" \
             --base main \
             --head pre-production \
             --label "release" \
