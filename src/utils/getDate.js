@@ -56,3 +56,13 @@ export const formatDateTime = (date) => {
   const minutes = (`0${d.getMinutes()}`).slice(-2)
   return `${year}-${month}-${day} ${hours}:${minutes}`
 }
+
+export const getMilliseconds = () => {
+  const dateNow = new Date()
+  return dateNow.getMilliseconds()
+}
+
+export const getTime = () => {
+  const dateNow = new Date()
+  return dateNow.getTime()
+}
