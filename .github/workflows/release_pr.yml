@@ -3,6 +3,8 @@ name: RELEASE [PRODUCTION] - Create Release PR
 on:
   pull_request_target:
     types: [closed]
+    branches:
+      - pre-release
 
 permissions:
   contents: write
@@ -19,7 +21,7 @@ jobs:
       - name: Checkout pre-release Branch
         uses: actions/checkout@v4
         with:
-          ref: pre-release
+          ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
 
       - name: Create Release PR
