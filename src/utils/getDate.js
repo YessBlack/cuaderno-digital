@@ -48,3 +48,8 @@ export const getMilliseconds = () => {
   const dateNow = new Date()
   return dateNow.getMilliseconds()
 }
+
+export const getTime = () => {
+  const dateNow = new Date()
+  return dateNow.getTime()
+}
