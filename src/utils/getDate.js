@@ -53,3 +53,18 @@ export const getTime = () => {
   const dateNow = new Date()
   return dateNow.getTime()
 }
+
+export const getTimezoneOffset = () => {
+  const dateNow = new Date()
+  return dateNow.getTimezoneOffset()
+}
+
+export const getUTCDate = () => {
+  const dateNow = new Date()
+  return dateNow.getUTCDate()
+}
+
+export const getUTCHours = () => {
+  const dateNow = new Date()
+  return dateNow.getUTCHours()
+}
