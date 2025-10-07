@@ -81,3 +81,25 @@ export const getUTCHours = () => {
   const dateNow = new Date()
   return dateNow.getUTCHours()
 }
+
+export const sincronizeDate = (date) => {
+  const localDate = new Date(date)
+  const userTimezoneOffset = localDate.getTimezoneOffset() * 60000
+  return new Date(localDate.getTime() + userTimezoneOffset)
+}
+
+export const sincronizeUTCDate = (date) => {
+  const localDate = new Date(date)
+  const userTimezoneOffset = localDate.getTimezoneOffset() * 60000
+  return new Date(localDate.getTime() - userTimezoneOffset)
+}
+
+export const getUTCMinutes = () => {
+  const dateNow = new Date()
+  return dateNow.getUTCMinutes()
+}
+
+export const getUTCSeconds = () => {
+  const dateNow = new Date()
+  return dateNow.getUTCSeconds()
+}
