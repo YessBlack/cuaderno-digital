@@ -6,6 +6,7 @@ export function AuthForm({ title, buttonText, handleSubmit, showNameField }) {
   console.log('Feat Task')
   console.log('Pruebas 1')
   console.log('Pruebas 2')
+  console.log('Pruebas 3')
 
   return (
     <section className='flex flex-col justify-center items-center m-4'>
