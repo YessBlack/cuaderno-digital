@@ -8,6 +8,7 @@ export function Login() {
   const { login, error } = useAuth()
 
   console.log('Login')
+  console.log('Login123')
 
   const handleSubmit = (e) => {
     e.preventDefault()
