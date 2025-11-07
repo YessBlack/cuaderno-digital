@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { createTask } from '../services/db'
 
-export function TaskInputBar() {
+export function TaskInputBar () {
   const { t } = useTranslation()
 
   const user = JSON.parse(window.localStorage.getItem('user'))
