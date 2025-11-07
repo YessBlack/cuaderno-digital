@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
-export function Welcome () {
+export function Welcome() {
   const { t } = useTranslation()
 
   return (
