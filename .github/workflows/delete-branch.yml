@@ -1,7 +1,7 @@
 name: Cleanup - Delete Merged Branches
 
 on:
-    pull_request:
+    pull_request_target:
         types: [closed]
 
 permissions:
@@ -45,49 +45,28 @@ jobs:
                   echo "is_protected=$IS_PROTECTED" >> $GITHUB_OUTPUT
                   echo "Branch '$BRANCH_NAME' protected status: $IS_PROTECTED"
 
-            # 🧩 Step 2.1: Reassign dependent PRs before deletion
-            - name: Reassign dependent PRs
-              if: steps.check_protected.outputs.is_protected == 'false'
-              run: |
-                  SOURCE_BRANCH=${{ steps.branch_info.outputs.source_branch }}
-                  TARGET_BRANCH=${{ steps.branch_info.outputs.target_branch }}
-
-                  echo "Checking for PRs that depend on ${SOURCE_BRANCH}..."
-
-                  PRS=$(curl -s -H "Accept: application/vnd.github+json" \
-                      -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                      "https://api.github.com/repos/${{ github.repository }}/pulls?state=open" \
-                      | jq --arg branch "$SOURCE_BRANCH" '[.[] | select(.base.ref == $branch)]')
-
-                  DEP_COUNT=$(echo "$PRS" | jq 'length')
-                  echo "Found $DEP_COUNT dependent PR(s)."
-
-                  if [ "$DEP_COUNT" -gt 0 ]; then
-                    for pr in $(echo "$PRS" | jq -r '.[].number'); do
-                      echo "➡️ Reassigning PR #$pr base to $TARGET_BRANCH..."
-                      curl -s -X PATCH \
-                        -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                        -H "Accept: application/vnd.github+json" \
-                        -d "{\"base\":\"$TARGET_BRANCH\"}" \
-                        "https://api.github.com/repos/${{ github.repository }}/pulls/$pr"
-                    done
-                  fi
-
-            # Step 3: Delete the branch if it's not protected
-            - name: Delete merged branch
+             # Step 3: Reassign dependent PRs and delete the merged branch
+            - name: Reassign dependent PRs and delete merge branch
               if: steps.check_protected.outputs.is_protected == 'false'
               run: |
                   BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
+                  TARGET_BRANCH=${{ steps.branch_info.outputs.target_branch }}
 
-                  echo ":wastebasket: Deleting merged branch: $BRANCH_NAME"
+                  echo "🔄 Checking for PRs dependent on $BRANCH_NAME..."
+                  DEPENDENT_PRS=$(gh pr list --state open --base "$BRANCH_NAME" --json number -q '.[].number')
 
-                  # Delete the branch using GitHub API
+                  for PR_NUMBER in $DEPENDENT_PRS; do
+                    echo "🔄 Reassigning PR #$PR_NUMBER base to $TARGET_BRANCH..."
+                    gh pr edit $PR_NUMBER --base "$TARGET_BRANCH"
+                  done
+
+                  echo "🗑️ Deleting merged branch: $BRANCH_NAME"
                   curl -X DELETE \
                     -H "Accept: application/vnd.github.v3+json" \
                     -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                     "https://api.github.com/repos/${{ github.repository }}/git/refs/heads/$BRANCH_NAME"
 
-                  echo ":white_check_mark: Successfully deleted branch: $BRANCH_NAME"
+                  echo "✅ Branch $BRANCH_NAME deleted successfully"
 
             # Step 4: Log the action taken
             - name: Log Cleanup Action
@@ -110,7 +89,7 @@ jobs:
                     echo ":wastebasket: The branch '$BRANCH_NAME' was deleted after merging."
                   fi
 
-            # Step 5: Comment on PR about branch deletion
+            # Step 5: Comment on PR (optional - can be removed if too noisy)
             - name: Comment on PR about branch deletion
               if: steps.check_protected.outputs.is_protected == 'false'
               uses: actions/github-script@v6
@@ -124,10 +103,10 @@ jobs:
                         owner: context.repo.owner,
                         repo: context.repo.repo,
                         issue_number: prNumber,
-                        body: `:wastebasket: La rama fuente \`${branchName}\` fue eliminada después de fusionarse en \`${targetBranch}\`.`
+                        body: `:wastebasket: The source branch \`${branchName}\` has been deleted after merging into \`${targetBranch}\`.`
                       });
 
-            # Step 6: Log protected branch case
+            # Step 6: Handle protected branch case
             - name: Log protected branch
               if: steps.check_protected.outputs.is_protected == 'true'
               run: |
