@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 export function AuthForm({ title, buttonText, handleSubmit, showNameField }) {
   const { t } = useTranslation()
 
-  console.log('Pruebas 2')
   console.log('Pruebas 3')
 
   return (
