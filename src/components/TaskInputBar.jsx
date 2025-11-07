@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { createTask } from '../services/db'
 
-export function TaskInputBar () {
+export function TaskInputBar() {
   const { t } = useTranslation()
 
   const user = JSON.parse(window.localStorage.getItem('user'))
@@ -17,6 +17,8 @@ export function TaskInputBar () {
     createTask(data)
     e.target.reset()
   }
+
+  console.log('TaskInputBar')
 
   return (
     <section className='flex flex-col justify-between rounded-2xl p-3 bg-buttonSecondary max-w-[800px] w-[100%] mt-1 sm:flex-row'>
