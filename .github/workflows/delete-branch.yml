@@ -1,116 +1,128 @@
 name: Cleanup - Delete Merged Branches
 
 on:
-  pull_request_target:
-    types: [closed]
+    pull_request_target:
+        types: [closed]
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+    contents: write
+    issues: write
+    pull-requests: write
 
 jobs:
-  delete_merged_branch:
-    name: Delete Merged Branch
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
+    delete_merged_branch:
+        name: Delete Merged Branch
+        runs-on: ubuntu-latest
+        if: github.event.pull_request.merged == true
 
-    steps:
-      # Step 1: Get branch information
-      - name: Get branch name
-        id: branch_info
-        run: |
-          echo "source_branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
-          echo "target_branch=${{ github.event.pull_request.base.ref }}" >> $GITHUB_OUTPUT
-          echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
-          echo "pr_title=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
+        steps:
+            # Step 1: Get branch information
+            - name: Get branch name
+              id: branch_info
+              run: |
+                  echo "source_branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+                  echo "target_branch=${{ github.event.pull_request.base.ref }}" >> $GITHUB_OUTPUT
+                  echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+                  echo "pr_title=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
 
-      # Step 2: Check if branch should be protected from deletion
-      - name: Check if branch is protected
-        id: check_protected
-        run: |
-          BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
+            # Step 2: Check if branch should be protected from deletion
+            - name: Check if branch is protected
+              id: check_protected
+              run: |
+                  BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
 
-          # List of protected branches (case-insensitive)
-          PROTECTED_BRANCHES=("main" "dev" "pre-production")
+                  # List of protected branches (case-insensitive)
+                  PROTECTED_BRANCHES=("main" "dev" "pre-production")
 
-          IS_PROTECTED=false
-          for PROTECTED in "${PROTECTED_BRANCHES[@]}"; do
-            if [ "${BRANCH_NAME,,}" == "${PROTECTED,,}" ]; then
-              IS_PROTECTED=true
-              break
-            fi
-          done
+                  IS_PROTECTED=false
+                  for PROTECTED in "${PROTECTED_BRANCHES[@]}"; do
+                    if [ "${BRANCH_NAME,,}" == "${PROTECTED,,}" ]; then
+                      IS_PROTECTED=true
+                      break
+                    fi
+                  done
 
-          echo "is_protected=$IS_PROTECTED" >> $GITHUB_OUTPUT
-          echo "Branch '$BRANCH_NAME' protected status: $IS_PROTECTED"
+                  echo "is_protected=$IS_PROTECTED" >> $GITHUB_OUTPUT
+                  echo "Branch '$BRANCH_NAME' protected status: $IS_PROTECTED"
 
-      # Step 3: Delete the branch if it's not protected
-      - name: Delete merge branch
-        if: steps.check_protected.outputs.is_protected == 'false'
-        run: |
-          BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
+            # Step 2.1: Check for dependent PRs
+            - name: Check for dependent PRs
+              id: dependent_prs
+              run: |
+                  BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
+                  DEPENDENT_PRS=$(curl -s -H "Accept: application/vnd.github+json" \
+                      -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                      "https://api.github.com/repos/${{ github.repository }}/pulls?state=open" \
+                      | jq --arg branch "$BRANCH_NAME" '[.[] | select(.base.ref == $branch)] | length')
+                  echo "dependent_count=$DEPENDENT_PRS" >> $GITHUB_OUTPUT
+                  echo "Dependent PRs: $DEPENDENT_PRS"
 
-          echo ":wastebasket: Deleting merged branch: $BRANCH_NAME"
+            # Step 3: Delete the branch if it's not protected
+            - name: Delete merge branch
+              if: steps.check_protected.outputs.is_protected == 'false' && steps.dependent_prs.outputs.dependent_count == '0'
+              run: |
+                  BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
 
-          # Delete the branch using GitHub API
-          curl -X DELETE \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/git/refs/heads/$BRANCH_NAME"
+                  echo ":wastebasket: Deleting merged branch: $BRANCH_NAME"
 
-          echo ":white_check_mark: Successfully deleted branch: $BRANCH_NAME"
+                  # Delete the branch using GitHub API
+                  curl -X DELETE \
+                    -H "Accept: application/vnd.github.v3+json" \
+                    -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                    "https://api.github.com/repos/${{ github.repository }}/git/refs/heads/$BRANCH_NAME"
 
-      # Step 4: Log the action taken
-      - name: Log Cleanup Action
-        run: |
-          BRANCH_NAME="${{ steps.branch_info.outputs.source_branch }}"
-          TARGET_BRANCH="${{ steps.branch_info.outputs.target_branch }}"
-          PR_NUMBER="${{ steps.branch_info.outputs.pr_number }}"
-          PR_TITLE="${{ steps.branch_info.outputs.pr_title }}"
-          IS_PROTECTED="${{ steps.check_protected.outputs.is_protected }}"
+                  echo ":white_check_mark: Successfully deleted branch: $BRANCH_NAME"
 
-          echo ":clipboard: Branch Cleanup Summary:"
-          echo "   PR #$PR_NUMBER: $PR_TITLE"
-          echo "   Source Branch: $BRANCH_NAME"
-          echo "   Target Branch: $TARGET_BRANCH"
-          echo "   Protected: $IS_PROTECTED"
+            # Step 4: Log the action taken
+            - name: Log Cleanup Action
+              run: |
+                  BRANCH_NAME="${{ steps.branch_info.outputs.source_branch }}"
+                  TARGET_BRANCH="${{ steps.branch_info.outputs.target_branch }}"
+                  PR_NUMBER="${{ steps.branch_info.outputs.pr_number }}"
+                  PR_TITLE="${{ steps.branch_info.outputs.pr_title }}"
+                  IS_PROTECTED="${{ steps.check_protected.outputs.is_protected }}"
 
-          if [ "$IS_PROTECTED" == "true" ]; then
-            echo ":warning: The branch '$BRANCH_NAME' is protected and was not deleted."
-          else
-            echo ":wastebasket: The branch '$BRANCH_NAME' was deleted after merging."
-          fi
+                  echo ":clipboard: Branch Cleanup Summary:"
+                  echo "   PR #$PR_NUMBER: $PR_TITLE"
+                  echo "   Source Branch: $BRANCH_NAME"
+                  echo "   Target Branch: $TARGET_BRANCH"
+                  echo "   Protected: $IS_PROTECTED"
 
-      # Step 5: Comment on PR (optional - can be removed if too noisy)
-      - name: Comment on PR about branch deletion
-        if: steps.check_protected.outputs.is_protected == 'false'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const prNumber = ${{ steps.branch_info.outputs.pr_number }};
-            const branchName = '${{ steps.branch_info.outputs.source_branch }}';
-            const targetBranch = '${{ steps.branch_info.outputs.target_branch }}';
+                  if [ "$IS_PROTECTED" == "true" ]; then
+                    echo ":warning: The branch '$BRANCH_NAME' is protected and was not deleted."
+                  else
+                    echo ":wastebasket: The branch '$BRANCH_NAME' was deleted after merging."
+                  fi
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body: `:wastebasket: The source branch \`${branchName}\` has been deleted after merging into \`${targetBranch}\`.`
-            });
+            # Step 5: Comment on PR (optional - can be removed if too noisy)
+            - name: Comment on PR about branch deletion
+              if: steps.check_protected.outputs.is_protected == 'false'
+              uses: actions/github-script@v6
+              with:
+                  script: |
+                      const prNumber = ${{ steps.branch_info.outputs.pr_number }};
+                      const branchName = '${{ steps.branch_info.outputs.source_branch }}';
+                      const targetBranch = '${{ steps.branch_info.outputs.target_branch }}';
 
-      # Step 6: Handle protected branch case
-      - name: Log protected branch
-        if: steps.check_protected.outputs.is_protected == 'true'
-        run: |
-          BRANCH_NAME="${{ steps.branch_info.outputs.source_branch }}"
-          TARGET_BRANCH="${{ steps.branch_info.outputs.target_branch }}"
-          PR_NUMBER="${{ steps.branch_info.outputs.pr_number }}"
-          PR_TITLE="${{ steps.branch_info.outputs.pr_title }}"
+                      await github.rest.issues.createComment({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: prNumber,
+                        body: `:wastebasket: The source branch \`${branchName}\` has been deleted after merging into \`${targetBranch}\`.`
+                      });
 
-          echo ":warning: Branch Cleanup Skipped (Protected)"
-          echo "   PR #$PR_NUMBER: $PR_TITLE"
-          echo "   Source Branch: $BRANCH_NAME"
-          echo "   Target Branch: $TARGET_BRANCH"
-          echo "   Action: :warning: Branch preserved (protected)"
-          echo "The branch '$BRANCH_NAME' is protected and was not deleted."
+            # Step 6: Handle protected branch case
+            - name: Log protected branch
+              if: steps.check_protected.outputs.is_protected == 'true'
+              run: |
+                  BRANCH_NAME="${{ steps.branch_info.outputs.source_branch }}"
+                  TARGET_BRANCH="${{ steps.branch_info.outputs.target_branch }}"
+                  PR_NUMBER="${{ steps.branch_info.outputs.pr_number }}"
+                  PR_TITLE="${{ steps.branch_info.outputs.pr_title }}"
+
+                  echo ":warning: Branch Cleanup Skipped (Protected)"
+                  echo "   PR #$PR_NUMBER: $PR_TITLE"
+                  echo "   Source Branch: $BRANCH_NAME"
+                  echo "   Target Branch: $TARGET_BRANCH"
+                  echo "   Action: :warning: Branch preserved (protected)"
+                  echo "The branch '$BRANCH_NAME' is protected and was not deleted."
