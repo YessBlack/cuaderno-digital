@@ -3,11 +3,6 @@ import { useTranslation } from 'react-i18next'
 export function AuthForm({ title, buttonText, handleSubmit, showNameField }) {
   const { t } = useTranslation()
 
-  console.log('Feat Task')
-  console.log('Pruebas 1')
-  console.log('Pruebas 2')
-  console.log('Pruebas 3')
-
   return (
     <section className='flex flex-col justify-center items-center m-4'>
       <div className='flex flex-col items-center justify-evenly border-primary border p-5 rounded-3xl max-w-[500px] w-full h-[75vh] shadow-2xl max-h-[500px]'>
