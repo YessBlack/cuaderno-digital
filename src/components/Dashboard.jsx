@@ -2,22 +2,24 @@ import { useTask } from '../hooks/useTask'
 import { CardTask } from './CardTask'
 import { TaskInputBar } from './TaskInputBar'
 
-export function Dashboard () {
+export function Dashboard() {
   const { tasks } = useTask()
+
+  console.log('Estructura Basica')
 
   return (
     <main className='flex flex-col items-center justify-center mb-5'>
       <TaskInputBar />
       <section className='flex items-center justify-center flex-wrap gap-4 mt-3'>
         {
-        tasks?.map(task => (
-          <CardTask
-            key={task.id}
-            id={task.id}
-            task={task.task}
-            completed={task.completed}
-          />
-        ))
+          tasks?.map(task => (
+            <CardTask
+              key={task.id}
+              id={task.id}
+              task={task.task}
+              completed={task.completed}
+            />
+          ))
         }
       </section>
     </main>
