@@ -1,7 +1,12 @@
 import { useTranslation } from 'react-i18next'
 
-export function AuthForm ({ title, buttonText, handleSubmit, showNameField }) {
+export function AuthForm({ title, buttonText, handleSubmit, showNameField }) {
   const { t } = useTranslation()
+
+  console.log('Feat Task')
+  console.log('Pruebas 1')
+  console.log('Pruebas 2')
+  console.log('Pruebas 3')
 
   return (
     <section className='flex flex-col justify-center items-center m-4'>
@@ -10,11 +15,11 @@ export function AuthForm ({ title, buttonText, handleSubmit, showNameField }) {
         <form className='flex flex-col gap-4 w-[250px]' onSubmit={handleSubmit}>
           {
             showNameField &&
-              <input
-                type='text'
-                className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center' placeholder={t('Nombre')}
-                name='name'
-              />
+            <input
+              type='text'
+              className='border border-secondary p-2 rounded-xl focus:outline-none placeholder:text-center' placeholder={t('Nombre')}
+              name='name'
+            />
           }
           <input
             type='email'
