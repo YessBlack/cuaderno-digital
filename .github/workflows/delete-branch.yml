@@ -1,7 +1,7 @@
 name: Cleanup - Delete Merged Branches
 
 on:
-    pull_request_target:
+    pull_request:
         types: [closed]
 
 permissions:
@@ -45,21 +45,37 @@ jobs:
                   echo "is_protected=$IS_PROTECTED" >> $GITHUB_OUTPUT
                   echo "Branch '$BRANCH_NAME' protected status: $IS_PROTECTED"
 
-            # Step 2.1: Check for dependent PRs
-            - name: Check for dependent PRs
-              id: dependent_prs
+            # 🧩 Step 2.1: Reassign dependent PRs before deletion
+            - name: Reassign dependent PRs
+              if: steps.check_protected.outputs.is_protected == 'false'
               run: |
-                  BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
-                  DEPENDENT_PRS=$(curl -s -H "Accept: application/vnd.github+json" \
+                  SOURCE_BRANCH=${{ steps.branch_info.outputs.source_branch }}
+                  TARGET_BRANCH=${{ steps.branch_info.outputs.target_branch }}
+
+                  echo "Checking for PRs that depend on ${SOURCE_BRANCH}..."
+
+                  PRS=$(curl -s -H "Accept: application/vnd.github+json" \
                       -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                       "https://api.github.com/repos/${{ github.repository }}/pulls?state=open" \
-                      | jq --arg branch "$BRANCH_NAME" '[.[] | select(.base.ref == $branch)] | length')
-                  echo "dependent_count=$DEPENDENT_PRS" >> $GITHUB_OUTPUT
-                  echo "Dependent PRs: $DEPENDENT_PRS"
+                      | jq --arg branch "$SOURCE_BRANCH" '[.[] | select(.base.ref == $branch)]')
+
+                  DEP_COUNT=$(echo "$PRS" | jq 'length')
+                  echo "Found $DEP_COUNT dependent PR(s)."
+
+                  if [ "$DEP_COUNT" -gt 0 ]; then
+                    for pr in $(echo "$PRS" | jq -r '.[].number'); do
+                      echo "➡️ Reassigning PR #$pr base to $TARGET_BRANCH..."
+                      curl -s -X PATCH \
+                        -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                        -H "Accept: application/vnd.github+json" \
+                        -d "{\"base\":\"$TARGET_BRANCH\"}" \
+                        "https://api.github.com/repos/${{ github.repository }}/pulls/$pr"
+                    done
+                  fi
 
             # Step 3: Delete the branch if it's not protected
-            - name: Delete merge branch
-              if: steps.check_protected.outputs.is_protected == 'false' && steps.dependent_prs.outputs.dependent_count == '0'
+            - name: Delete merged branch
+              if: steps.check_protected.outputs.is_protected == 'false'
               run: |
                   BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
 
@@ -94,7 +110,7 @@ jobs:
                     echo ":wastebasket: The branch '$BRANCH_NAME' was deleted after merging."
                   fi
 
-            # Step 5: Comment on PR (optional - can be removed if too noisy)
+            # Step 5: Comment on PR about branch deletion
             - name: Comment on PR about branch deletion
               if: steps.check_protected.outputs.is_protected == 'false'
               uses: actions/github-script@v6
@@ -108,10 +124,10 @@ jobs:
                         owner: context.repo.owner,
                         repo: context.repo.repo,
                         issue_number: prNumber,
-                        body: `:wastebasket: The source branch \`${branchName}\` has been deleted after merging into \`${targetBranch}\`.`
+                        body: `:wastebasket: La rama fuente \`${branchName}\` fue eliminada después de fusionarse en \`${targetBranch}\`.`
                       });
 
-            # Step 6: Handle protected branch case
+            # Step 6: Log protected branch case
             - name: Log protected branch
               if: steps.check_protected.outputs.is_protected == 'true'
               run: |
