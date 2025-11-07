@@ -55,7 +55,7 @@ jobs:
                   const sourceBranch = '${{ steps.branch_info.outputs.source_branch }}';
                   const targetBranch = '${{ steps.branch_info.outputs.target_branch }}';
 
-                  // Buscar PRs abiertos que tienen como base la rama que se eliminará
+                  // Search for open PRs that have the branch to be deleted as their base
                   const { data: dependentPrs } = await github.rest.pulls.list({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
@@ -64,14 +64,14 @@ jobs:
                   });
 
                   if (dependentPrs.length === 0) {
-                    console.log(`No se encontraron PRs dependientes con base '${sourceBranch}'`);
+                    console.log(`No dependent PRs were found with base '${sourceBranch}'`);
                     return;
                   }
 
-                  console.log(`Se encontraron ${dependentPrs.length} PRs dependientes. Redirigiendo a '${targetBranch}'...`);
+                  console.log(`Found ${dependentPrs.length} dependent PRs. Retargeting to '${targetBranch}'...`);
 
                   for (const pr of dependentPrs) {
-                    console.log(`> Actualizando PR #${pr.number} (Base: ${pr.base.ref} -> ${targetBranch})`);
+                    console.log(`> Updating PR #${pr.number} (Base: ${pr.base.ref} -> ${targetBranch})`);
 
                     await github.rest.pulls.update({
                       owner: context.repo.owner,
@@ -80,12 +80,12 @@ jobs:
                       base: targetBranch,
                     });
 
-                    // Agregar un comentario notificando la redirección
+                    // Add a comment notifying the redirection
                     await github.rest.issues.createComment({
                       owner: context.repo.owner,
                       repo: context.repo.repo,
                       issue_number: pr.number,
-                      body: `:fast_forward: La rama base \`${sourceBranch}\` ha sido fusionada y se eliminará. Este PR ahora apunta a \`${targetBranch}\`.`,
+                      body: `:fast_forward: The base branch \`${sourceBranch}\` has been merged and will be deleted. This PR now points to \`${targetBranch}\`.`,
                     });
                   }
 
