@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { AuthForm } from './AuthForm'
 import { ToastContainer, toast } from 'react-toastify'
 
-export function Register () {
+export function Register() {
   const { t } = useTranslation()
   const { register, userRegister, error } = useAuth()
 
@@ -21,6 +21,8 @@ export function Register () {
     position: 'top-center',
     autoClose: 2000
   })
+
+  console.log('Register')
 
   return (
     <>
