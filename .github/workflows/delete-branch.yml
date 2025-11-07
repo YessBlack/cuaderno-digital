@@ -11,7 +11,7 @@ permissions:
 
 jobs:
     delete_merged_branch:
-        name: Delete Merged Branch
+        name: Delete Merged Branch and Retarget Dependents
         runs-on: ubuntu-latest
         if: github.event.pull_request.merged == true
 
@@ -45,33 +45,79 @@ jobs:
                   echo "is_protected=$IS_PROTECTED" >> $GITHUB_OUTPUT
                   echo "Branch '$BRANCH_NAME' protected status: $IS_PROTECTED"
 
-            # Step 3: Reassign dependent PRs and delete the merged branch
-            - name: Reassign dependent PRs
+            # Step 2.5: Retarget dependent PRs if branch is not protected
+            - name: 🔄 Retarget Dependent Pull Requests
+              id: retarget_prs
+              if: steps.check_protected.outputs.is_protected == 'false'
+              uses: actions/github-script@v6
+              with:
+                  script: |
+                      const sourceBranch = '${{ steps.branch_info.outputs.source_branch }}';
+                      const newBaseBranch = '${{ steps.branch_info.outputs.target_branch }}';
+
+                      // 1. Buscar PRs abiertos que tienen la rama de origen como base
+                      const { data: dependentPrs } = await github.rest.pulls.list({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          state: 'open',
+                          base: sourceBranch,
+                      });
+
+                      if (dependentPrs.length === 0) {
+                          console.log(`No se encontraron Pull Requests dependientes con la base '${sourceBranch}'.`);
+                          echo "retargeted_prs=" >> $GITHUB_OUTPUT
+                          return;
+                      }
+
+                      console.log(`Se encontraron ${dependentPrs.length} PRs dependientes. Redirigiendo a ${newBaseBranch}...`);
+
+                      let retargetedPrs = [];
+
+                      // 2. Iterar y actualizar la rama base de cada PR dependiente
+                      for (const pr of dependentPrs) {
+                          console.log(`\t> Actualizando PR #${pr.number}`);
+
+                          await github.rest.pulls.update({
+                              owner: context.repo.owner,
+                              repo: context.repo.repo,
+                              pull_number: pr.number,
+                              base: newBaseBranch, // Establecer la nueva base (e.g., rama_PR1)
+                          });
+
+                          retargetedPrs.push(`#${pr.number}`);
+
+                          // Opcional: Agregar un comentario de notificación al PR dependiente
+                          await github.rest.issues.createComment({
+                              owner: context.repo.owner,
+                              repo: context.repo.repo,
+                              issue_number: pr.number,
+                              body: `:fast_forward: **Redirección Automática de la Rama Base:** La rama base original (\`${sourceBranch}\`) ha sido fusionada y eliminada. Este Pull Request ha sido automáticamente **redirigido a la nueva base: \`${newBaseBranch}\`**.`,
+                          });
+                      }
+
+                      console.log(`✅ PRs redirigidos: ${retargetedPrs.join(', ')}`);
+
+                      // Exportar el listado de PRs redirigidos para usarlo en los logs/comentarios posteriores
+                      console.log(`::set-output name=retargeted_prs::${retargetedPrs.join(', ')}`)
+
+
+            # Step 3: Delete the branch if it's not protected
+            - name: Delete merge branch
               if: steps.check_protected.outputs.is_protected == 'false'
               run: |
-                BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
-                TARGET_BRANCH=${{ steps.branch_info.outputs.target_branch }}
+                  BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
 
-                # Obtener PRs abiertos que tienen como base la rama a eliminar
-                DEPENDENT_PRS=$(gh pr list --state open --base "$BRANCH_NAME" --json number -q '.[].number')
+                  echo ":wastebasket: Deleting merged branch: $BRANCH_NAME"
 
-                for PR_NUMBER in $DEPENDENT_PRS; do
-                  echo "🔄 Reassigning PR #$PR_NUMBER base to $TARGET_BRANCH..."
-                  gh pr edit $PR_NUMBER --base "$TARGET_BRANCH"
-                done
+                  # Delete the branch using GitHub API
+                  curl -X DELETE \
+                    -H "Accept: application/vnd.github.v3+json" \
+                    -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                    "https://api.github.com/repos/${{ github.repository }}/git/refs/heads/$BRANCH_NAME"
 
-            - name: Delete merged branch
-              if: steps.check_protected.outputs.is_protected == 'false'
-              run: |
-                BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
-                echo "🗑️ Deleting merged branch: $BRANCH_NAME"
-                curl -X DELETE \
-                  -H "Accept: application/vnd.github.v3+json" \
-                  -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                  "https://api.github.com/repos/${{ github.repository }}/git/refs/heads/$BRANCH_NAME"
-                echo "✅ Branch $BRANCH_NAME deleted successfully"
+                  echo ":white_check_mark: Successfully deleted branch: $BRANCH_NAME"
 
-            # Step 4: Log the action taken
+            # Step 4: Log the action taken (MODIFICADO para incluir info de redirección)
             - name: Log Cleanup Action
               run: |
                   BRANCH_NAME="${{ steps.branch_info.outputs.source_branch }}"
@@ -79,6 +125,7 @@ jobs:
                   PR_NUMBER="${{ steps.branch_info.outputs.pr_number }}"
                   PR_TITLE="${{ steps.branch_info.outputs.pr_title }}"
                   IS_PROTECTED="${{ steps.check_protected.outputs.is_protected }}"
+                  RETARGETED_PRS="${{ steps.retarget_prs.outputs.retargeted_prs }}"
 
                   echo ":clipboard: Branch Cleanup Summary:"
                   echo "   PR #$PR_NUMBER: $PR_TITLE"
@@ -90,9 +137,12 @@ jobs:
                     echo ":warning: The branch '$BRANCH_NAME' is protected and was not deleted."
                   else
                     echo ":wastebasket: The branch '$BRANCH_NAME' was deleted after merging."
+                    if [ -n "$RETARGETED_PRS" ]; then
+                      echo ":link: **PRs Redirigidos:** $RETARGETED_PRS"
+                    fi
                   fi
 
-            # Step 5: Comment on PR (optional - can be removed if too noisy)
+            # Step 5: Comment on PR (MODIFICADO para incluir info de redirección)
             - name: Comment on PR about branch deletion
               if: steps.check_protected.outputs.is_protected == 'false'
               uses: actions/github-script@v6
@@ -101,12 +151,19 @@ jobs:
                       const prNumber = ${{ steps.branch_info.outputs.pr_number }};
                       const branchName = '${{ steps.branch_info.outputs.source_branch }}';
                       const targetBranch = '${{ steps.branch_info.outputs.target_branch }}';
+                      const retargetedPrs = '${{ steps.retarget_prs.outputs.retargeted_prs }}';
+
+                      let body = `:wastebasket: La rama de origen \`${branchName}\` ha sido eliminada después de fusionarse en \`${targetBranch}\`.`;
+
+                      if (retargetedPrs && retargetedPrs.length > 0) {
+                        body += `\n\n:link: **PRs dependientes redirigidos:** ${retargetedPrs}.`;
+                      }
 
                       await github.rest.issues.createComment({
                         owner: context.repo.owner,
                         repo: context.repo.repo,
                         issue_number: prNumber,
-                        body: `:wastebasket: The source branch \`${branchName}\` has been deleted after merging into \`${targetBranch}\`.`
+                        body: body
                       });
 
             # Step 6: Handle protected branch case
