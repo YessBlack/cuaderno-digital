@@ -4,6 +4,7 @@ export function AuthForm({ title, buttonText, handleSubmit, showNameField }) {
   const { t } = useTranslation()
 
   console.log('Feat Task')
+  console.log('Pruebas 1')
 
   return (
     <section className='flex flex-col justify-center items-center m-4'>
