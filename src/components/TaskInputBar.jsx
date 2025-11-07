@@ -19,6 +19,7 @@ export function TaskInputBar() {
   }
 
   console.log('TaskInputBar')
+  console.log('TaskInputBar123')
 
   return (
     <section className='flex flex-col justify-between rounded-2xl p-3 bg-buttonSecondary max-w-[800px] w-[100%] mt-1 sm:flex-row'>
