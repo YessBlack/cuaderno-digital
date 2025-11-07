@@ -32,7 +32,7 @@ jobs:
                   BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
 
                   # List of protected branches (case-insensitive)
-                  PROTECTED_BRANCHES=("main" "develop" "pre-production")
+                  PROTECTED_BRANCHES=("main" "dev" "pre-production")
 
                   IS_PROTECTED=false
                   for PROTECTED in "${PROTECTED_BRANCHES[@]}"; do
