@@ -1,168 +1,196 @@
 name: RELEASE [PRODUCTION] - Auto Tag and Release Notes
 
 on:
-  pull_request_target:
-    types: [closed]
-    branches:
-      - main
-  workflow_dispatch:
+    workflow_run:
+        workflows: ["DEPLOYMENT [PRODUCTION] - Pull Request Merged to Production"]
+        types:
+            - completed
+    workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: read
+    contents: write
+    pull-requests: read
 
 jobs:
-  create_tag:
-    runs-on: ubuntu-latest
-    if: |
-      ((github.event_name == 'pull_request_target' || github.event_name == 'pull_request') &&
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'release')) ||
-      (github.event_name == 'workflow_dispatch')
+    create_tag:
+        runs-on: ubuntu-latest
+        if: |
+            (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+            (github.event_name == 'workflow_dispatch')
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
-      - name: Extract release info
-        id: release_info
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # Manual dispatch: generate version automatically
-            LATEST_TAG=$(git tag --sort=-version:refname | grep -E '^1\.[0-9]+\.[0-9]+$' | head -1)
-            
-            if [ -z "$LATEST_TAG" ]; then
-              # No tags exist, start with 1.0.0
-              VERSION="1.0.0"
-            else
-              # Increment patch version
-              CURRENT_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
-              MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
-              MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-              PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
-              NEW_PATCH=$((PATCH + 1))
-              VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-            fi
-            
-            RELEASE_NAME="Manual Release $(date +'%Y%m%d')"
-            echo "🔧 Manual dispatch: Generated version $VERSION"
-            
-          else
-            # PR merge: extract from PR title
-            PR_TITLE="${{ github.event.pull_request.title }}"
-            PR_BODY="${{ github.event.pull_request.body }}"
+            - name: Extract release info
+              id: release_info
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                    # Manual dispatch: generate version automatically
+                    LATEST_TAG=$(git tag --sort=-version:refname | grep -E '^1\.[0-9]+\.[0-9]+$' | head -1)
 
-            # Extract version from PR title (format: "🚀 RELEASE v1.0.1" or "🚀 RELEASE 1.0.1")
-            VERSION=$(echo "$PR_TITLE" | grep -oP 'RELEASE\s+(v?[0-9]+\.[0-9]+\.[0-9]+)' | sed 's/RELEASE\s*//')
-            
-            # Remove 'v' prefix if present - we want clean version numbers
-            VERSION=$(echo "$VERSION" | sed 's/^v//')
+                    if [ -z "$LATEST_TAG" ]; then
+                      # No tags exist, start with 1.0.0
+                      VERSION="1.0.0"
+                    else
+                      # Increment patch version
+                      CURRENT_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+                      MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+                      MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+                      PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+                      NEW_PATCH=$((PATCH + 1))
+                      VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+                    fi
 
-            # Extract release name from PR title (just use "Release" as default)
-            RELEASE_NAME="Release"
+                    RELEASE_NAME="Manual Release $(date +'%Y%m%d')"
+                    echo "🔧 Manual dispatch: Generated version $VERSION"
 
-            if [ -z "$VERSION" ]; then
-              echo "❌ Could not extract version from PR title: $PR_TITLE"
-              exit 1
-            fi
-            
-            echo "📝 PR merge: Extracted version $VERSION from title"
-          fi
+                  else
+                    # Workflow run: get the PR that triggered the deployment
+                    # First, get the commit that triggered the workflow
+                    COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
 
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
-          echo "✅ Version: $VERSION"
-          echo "✅ Release name: $RELEASE_NAME"
+                    # Get PR information from the commit
+                    PR_INFO=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA/pulls --jq '.[0] // empty')
 
-      - name: Get latest tag for comparison
-        id: latest_tag
-        run: |
-          LATEST_TAG=$(git tag --sort=-version:refname | grep -E '^1\.[0-9]+\.[0-9]+$' | head -1)
-          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
-          echo "Previous tag: ${LATEST_TAG}"
+                    if [ "$PR_INFO" = "null" ] || [ -z "$PR_INFO" ]; then
+                      echo "❌ No pull request found for commit $COMMIT_SHA"
+                      echo "This might be a direct push to main. Skipping release creation."
+                      exit 0
+                    fi
 
-      - name: Generate release notes
-        id: release_notes
-        run: |
-          VERSION="${{ steps.release_info.outputs.version }}"
-          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
-          LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
+                    PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
+                    PR_BODY=$(echo "$PR_INFO" | jq -r '.body // ""')
 
-          # Set variables based on trigger type
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TRIGGER_TYPE="Manual dispatch"
-            PR_INFO="N/A (Manual trigger)"
-            PR_AUTHOR="${{ github.actor }}"
-            IMPLEMENTATION_TEXT="This release was created manually via workflow dispatch by @${{ github.actor }}."
-          else
-            TRIGGER_TYPE="PR merge"
-            PR_INFO="[#${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})"
-            PR_AUTHOR="${{ github.event.pull_request.user.login }}"
-            IMPLEMENTATION_TEXT="This release was created automatically after merging [PR #${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})."
+                    # Extract version from PR title (format: "🚀 RELEASE v1.0.1" or "🚀 RELEASE 1.0.1")
+                    VERSION=$(echo "$PR_TITLE" | grep -oP 'RELEASE\s+(v?[0-9]+\.[0-9]+\.[0-9]+)' | sed 's/RELEASE\s*//')
 
-            # Extract PR body which contains the PR list from release_pr workflow
-            PR_BODY="${{ github.event.pull_request.body }}"
-          fi
+                    # Remove 'v' prefix if present - we want clean version numbers
+                    VERSION=$(echo "$VERSION" | sed 's/^v//')
 
-          # Create release notes
-          cat > release_notes.md << EOF
-          ## 🚀 Version $VERSION
+                    # Extract release name from PR title (just use "Release" as default)
+                    RELEASE_NAME="Release"
 
-          ### Release Information
-          - **Version:** $VERSION
-          - **Previous tag:** ${LATEST_TAG:-"First release"}
-          - **Trigger:** $TRIGGER_TYPE
-          - **Pull Request:** $PR_INFO
-          - **Author:** @$PR_AUTHOR
-          - **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+                    if [ -z "$VERSION" ]; then
+                      echo "❌ Could not extract version from PR title: $PR_TITLE"
+                      exit 1
+                    fi
 
-          ### Release Notes
-          $PR_BODY
+                    echo "📝 PR merge: Extracted version $VERSION from title"
+                  fi
 
-          $IMPLEMENTATION_TEXT
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+                  echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
+                  echo "✅ Version: $VERSION"
+                  echo "✅ Release name: $RELEASE_NAME"
 
-          **Generated automatically by GitHub Actions** 🤖
-          EOF
+            - name: Get latest tag for comparison
+              id: latest_tag
+              run: |
+                  LATEST_TAG=$(git tag --sort=-version:refname | grep -E '^1\.[0-9]+\.[0-9]+$' | head -1)
+                  echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+                  echo "Previous tag: ${LATEST_TAG}"
 
-          echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
+            - name: Generate release notes
+              id: release_notes
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  VERSION="${{ steps.release_info.outputs.version }}"
+                  RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+                  LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
 
-      - name: Create Git Tag
-        run: |
-          VERSION="${{ steps.release_info.outputs.version }}"
+                  # Set variables based on trigger type
+                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                    TRIGGER_TYPE="Manual dispatch"
+                    PR_INFO="N/A (Manual trigger)"
+                    PR_AUTHOR="${{ github.actor }}"
+                    IMPLEMENTATION_TEXT="This release was created manually via workflow dispatch by @${{ github.actor }}."
+                  else
+                    # Get PR information from the workflow run
+                    COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+                    PR_INFO_JSON=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA/pulls --jq '.[0] // empty')
 
-          # Create tag using GitHub API (this ensures "verified" badge)
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            /repos/${{ github.repository }}/git/refs \
-            -f ref="refs/tags/$VERSION" \
-            -f sha="${{ github.sha }}"
+                    if [ "$PR_INFO_JSON" = "null" ] || [ -z "$PR_INFO_JSON" ]; then
+                      echo "⚠️ No pull request found for commit $COMMIT_SHA, using default values"
+                      PR_NUMBER="N/A"
+                      PR_URL="https://github.com/${{ github.repository }}/commit/$COMMIT_SHA"
+                      PR_AUTHOR="${{ github.actor }}"
+                    else
+                      PR_NUMBER=$(echo "$PR_INFO_JSON" | jq -r '.number')
+                      PR_URL=$(echo "$PR_INFO_JSON" | jq -r '.html_url')
+                      PR_AUTHOR=$(echo "$PR_INFO_JSON" | jq -r '.user.login')
+                    fi
 
-          echo "✅ Tag $VERSION created successfully"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                    TRIGGER_TYPE="Workflow run after PR merge"
+                    PR_INFO="[#${PR_NUMBER}](${PR_URL})"
+                    IMPLEMENTATION_TEXT="This release was created automatically after successful production deployment triggered by [PR #${PR_NUMBER}](${PR_URL})."
 
-      - name: Create GitHub Release
-        run: |
-          VERSION="${{ steps.release_info.outputs.version }}"
-          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+                    # Use the PR body we extracted earlier
+                    # PR_BODY is already set from the extract release info step
+                  fi
 
-          # Create release using GitHub CLI
-          gh release create "$VERSION" \
-            --title "🚀 $RELEASE_NAME ($VERSION)" \
-            --notes-file release_notes.md \
-            --verify-tag
-            
-          echo "✅ GitHub Release created: $VERSION"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  # Create release notes
+                  cat > release_notes.md <<EOF
+                  ## 🚀 Version $VERSION
 
-      - name: Notify completion
-        run: |
-          VERSION="${{ steps.release_info.outputs.version }}"
-          RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+                  ### Release Information
+                  - **Version:** $VERSION
+                  - **Previous tag:** ${LATEST_TAG:-"First release"}
+                  - **Trigger:** $TRIGGER_TYPE
+                  - **Pull Request:** $PR_INFO
+                  - **Author:** @$PR_AUTHOR
+                  - **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
-          echo "🎉 Release process completed successfully!"
-          echo "📋 Tag: $VERSION created and pushed successfully for $RELEASE_NAME: https://github.com/${{ github.repository }}/releases/tag/$VERSION"
+                  ### Release Notes
+                  $PR_BODY
+
+                  $IMPLEMENTATION_TEXT
+
+                  **Generated automatically by GitHub Actions** 🤖
+                  EOF
+
+                  echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
+
+            - name: Create Git Tag
+              run: |
+                  VERSION="${{ steps.release_info.outputs.version }}"
+
+                  # Create tag using GitHub API (this ensures "verified" badge)
+                  gh api \
+                    --method POST \
+                    -H "Accept: application/vnd.github+json" \
+                    /repos/${{ github.repository }}/git/refs \
+                    -f ref="refs/tags/$VERSION" \
+                    -f sha="${{ github.sha }}"
+
+                  echo "✅ Tag $VERSION created successfully"
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Create GitHub Release
+              run: |
+                  VERSION="${{ steps.release_info.outputs.version }}"
+                  RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+
+                  # Create release using GitHub CLI
+                  gh release create "$VERSION" \
+                    --title "🚀 $RELEASE_NAME ($VERSION)" \
+                    --notes-file release_notes.md \
+                    --verify-tag
+
+                  echo "✅ GitHub Release created: $VERSION"
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Notify completion
+              run: |
+                  VERSION="${{ steps.release_info.outputs.version }}"
+                  RELEASE_NAME="${{ steps.release_info.outputs.release_name }}"
+
+                  echo "🎉 Release process completed successfully!"
+                  echo "📋 Tag: $VERSION created and pushed successfully for $RELEASE_NAME: https://github.com/${{ github.repository }}/releases/tag/$VERSION"
