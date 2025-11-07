@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
-export function Footer () {
+export function Footer() {
   const { logout } = useAuth()
   const user = JSON.parse(window.localStorage.getItem('user'))
   const navigate = useNavigate()
@@ -10,6 +10,8 @@ export function Footer () {
     logout()
     navigate('/')
   }
+
+  console.log('Ultimos Ajustes')
 
   const handleHome = () => {
     window.scrollTo(0, 0)
@@ -27,10 +29,10 @@ export function Footer () {
                 <span className='icon-sign-out' onClick={handleLogout} />
               </div>
             </footer>
-            )
+          )
           : (
             <footer className='w-full bg-primary fixed bottom-0 h-[30px]' />
-            )
+          )
       }
     </>
   )
