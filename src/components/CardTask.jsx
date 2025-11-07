@@ -1,10 +1,12 @@
 import { deleteTask, updateTask } from '../services/db'
 import { getDate } from '../utils/getDate'
 
-export function CardTask ({ id, task, completed }) {
+export function CardTask({ id, task, completed }) {
   const date = getDate()
   const status = completed ? 'border-borderColorComplete bg-colorComplete' : 'border-borderColorIncomplete bg-colorIncomplete'
   const checked = completed ? 'text-green' : ''
+
+  console.log('Mejora Generales')
 
   const handleDelete = (id) => {
     deleteTask(id)
