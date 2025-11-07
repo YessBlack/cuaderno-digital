@@ -45,28 +45,31 @@ jobs:
                   echo "is_protected=$IS_PROTECTED" >> $GITHUB_OUTPUT
                   echo "Branch '$BRANCH_NAME' protected status: $IS_PROTECTED"
 
-             # Step 3: Reassign dependent PRs and delete the merged branch
-            - name: Reassign dependent PRs and delete merge branch
+            # Step 3: Reassign dependent PRs and delete the merged branch
+            - name: Reassign dependent PRs
               if: steps.check_protected.outputs.is_protected == 'false'
               run: |
-                  BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
-                  TARGET_BRANCH=${{ steps.branch_info.outputs.target_branch }}
+                BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
+                TARGET_BRANCH=${{ steps.branch_info.outputs.target_branch }}
 
-                  echo "🔄 Checking for PRs dependent on $BRANCH_NAME..."
-                  DEPENDENT_PRS=$(gh pr list --state open --base "$BRANCH_NAME" --json number -q '.[].number')
+                # Obtener PRs abiertos que tienen como base la rama a eliminar
+                DEPENDENT_PRS=$(gh pr list --state open --base "$BRANCH_NAME" --json number -q '.[].number')
 
-                  for PR_NUMBER in $DEPENDENT_PRS; do
-                    echo "🔄 Reassigning PR #$PR_NUMBER base to $TARGET_BRANCH..."
-                    gh pr edit $PR_NUMBER --base "$TARGET_BRANCH"
-                  done
+                for PR_NUMBER in $DEPENDENT_PRS; do
+                  echo "🔄 Reassigning PR #$PR_NUMBER base to $TARGET_BRANCH..."
+                  gh pr edit $PR_NUMBER --base "$TARGET_BRANCH"
+                done
 
-                  echo "🗑️ Deleting merged branch: $BRANCH_NAME"
-                  curl -X DELETE \
-                    -H "Accept: application/vnd.github.v3+json" \
-                    -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                    "https://api.github.com/repos/${{ github.repository }}/git/refs/heads/$BRANCH_NAME"
-
-                  echo "✅ Branch $BRANCH_NAME deleted successfully"
+            - name: Delete merged branch
+              if: steps.check_protected.outputs.is_protected == 'false'
+              run: |
+                BRANCH_NAME=${{ steps.branch_info.outputs.source_branch }}
+                echo "🗑️ Deleting merged branch: $BRANCH_NAME"
+                curl -X DELETE \
+                  -H "Accept: application/vnd.github.v3+json" \
+                  -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  "https://api.github.com/repos/${{ github.repository }}/git/refs/heads/$BRANCH_NAME"
+                echo "✅ Branch $BRANCH_NAME deleted successfully"
 
             # Step 4: Log the action taken
             - name: Log Cleanup Action
